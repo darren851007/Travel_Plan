@@ -1,0 +1,524 @@
+/* ============================================================
+   元件樣式（卡片、首頁、航班、行程、清單、住宿、插圖）
+   ============================================================ */
+
+/* ---------- 通用卡片與標籤 ---------- */
+.card {
+  background: var(--card);
+  border: var(--line) solid var(--ink);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+
+.card__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  font-size: 1.2rem;
+}
+
+.card__title-art {
+  width: 44px;
+  flex: none;
+}
+
+.pill {
+  display: inline-block;
+  padding: 1px 10px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+/* 交通方式彩色標籤（tone 由資料決定） */
+.tone-sky    { background: var(--sky); }
+.tone-mint   { background: var(--mint); }
+.tone-butter { background: var(--butter); }
+.tone-peach  { background: var(--peach); }
+.tone-lilac  { background: var(--lilac); }
+.tone-rose   { background: var(--rose); }
+.tone-sand   { background: var(--sand); }
+
+.badge-must {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--rose);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+/* ---------- 首頁 Hero ---------- */
+.hero {
+  padding-block: 24px 12px;
+  text-align: center;
+}
+
+.hero__art {
+  overflow: hidden;
+  border: var(--line) solid var(--ink);
+  border-radius: 24px;
+  background: var(--sky-soft);
+}
+
+.hero__eyebrow {
+  margin-top: 22px;
+  background: var(--mint);
+}
+
+.hero__title {
+  margin-top: 10px;
+  font-size: clamp(1.9rem, 8vw, 2.6rem);
+}
+
+.hero__sub {
+  margin-top: 6px;
+  color: var(--ink-soft);
+}
+
+/* 倒數計時 */
+.countdown {
+  margin-top: 20px;
+}
+
+.countdown__label {
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.countdown__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.countdown__cell {
+  padding: 10px 0 6px;
+  border: var(--line) solid var(--ink);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+}
+
+.countdown__cell:nth-child(1) { background: var(--peach); }
+
+.countdown__num {
+  display: block;
+  font-size: clamp(1.5rem, 7vw, 2rem);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.countdown__unit {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.countdown__done {
+  padding: 14px;
+  border: var(--line) solid var(--ink);
+  border-radius: var(--radius-sm);
+  background: var(--butter);
+}
+
+/* ---------- 航班卡片 ---------- */
+.flight__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.flight__no {
+  flex: 1;
+  font-size: 1rem;
+}
+
+.flight__icon {
+  width: 36px;
+  height: 36px;
+  padding: 4px;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: var(--sky-soft);
+}
+
+.flight__route {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.flight__point {
+  display: grid;
+}
+
+.flight__point--end {
+  text-align: right;
+}
+
+.flight__code {
+  font-size: 1.9rem;
+  line-height: 1;
+}
+
+.flight__time {
+  font-size: 1.05rem;
+}
+
+.flight__city {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+
+.flight__path {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+}
+
+.flight__path::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  left: 0;
+  right: 0;
+  border-top: var(--line) dashed var(--ink);
+}
+
+.flight__plane {
+  position: relative;
+  width: 30px;
+  padding: 2px;
+  background: var(--card);
+}
+
+.flight__dur {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+
+.flight__meta {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 12px;
+  padding-top: 12px;
+  border-top: 2px dashed var(--dash);
+}
+
+.flight__meta dt {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+/* ---------- 每日行程：日期切換 ---------- */
+.day-tabs {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 4px 14px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.day-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.day-tab {
+  flex: none;
+  display: grid;
+  justify-items: center;
+  min-width: 72px;
+  padding: 6px 12px;
+  border: var(--line) solid var(--ink);
+  border-radius: 16px;
+  background: var(--card);
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition: background-color 0.2s, box-shadow 0.2s;
+}
+
+.day-tab__label,
+.day-tab__week {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+.day-tab__date {
+  font-size: 1.15rem;
+  line-height: 1.3;
+}
+
+.day-tab[aria-selected="true"] {
+  background: var(--peach);
+  box-shadow: var(--shadow-sm);
+}
+
+.day-tab[aria-selected="true"] .day-tab__label,
+.day-tab[aria-selected="true"] .day-tab__week {
+  color: var(--ink);
+}
+
+/* ---------- 每日行程：時間軸 ---------- */
+.day-panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-bottom: 14px;
+}
+
+.day-panel__title {
+  font-size: 1.25rem;
+}
+
+.day-panel__theme {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.timeline {
+  position: relative;
+}
+
+/* 時間軸的虛線：位置 = 時間欄寬 48px + 間距一半 10px */
+.timeline::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 57px;
+  border-left: var(--line) dashed var(--ink);
+}
+
+.tl-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 20px;
+  padding-bottom: 16px;
+}
+
+.tl-item::before {
+  content: "";
+  position: absolute;
+  top: 16px;
+  left: 51px;
+  width: 15px;
+  height: 15px;
+  border: var(--line) solid var(--ink);
+  border-radius: 50%;
+  background: var(--paper);
+}
+
+.tl-item--must::before {
+  background: var(--rose);
+}
+
+.tl-time {
+  padding-top: 11px;
+  font-size: 0.95rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.tl-card {
+  padding: 10px 14px 12px;
+  border: var(--line) solid var(--ink);
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.tl-item--must .tl-card {
+  background: var(--butter-soft);
+  box-shadow: var(--shadow-sm);
+}
+
+.tl-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 1.05rem;
+}
+
+.tl-note {
+  margin-top: 2px;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+}
+
+.tl-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+/* ---------- 待辦清單 ---------- */
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+
+.progress__track {
+  flex: 1;
+  height: 14px;
+  overflow: hidden;
+  border: var(--line) solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+}
+
+.progress__bar {
+  height: 100%;
+  width: 0;
+  background: var(--mint);
+  transition: width 0.35s ease;
+}
+
+.check-item label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 8px 2px;
+  border-bottom: 2px dashed var(--dash);
+  cursor: pointer;
+}
+
+.check-item:last-child label {
+  border-bottom: 0;
+}
+
+.check-item input {
+  flex: none;
+  display: grid;
+  place-content: center;
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  border: var(--line) solid var(--ink);
+  border-radius: 8px;
+  background: var(--card);
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.check-item input::after {
+  content: "";
+  width: 11px;
+  height: 6px;
+  margin-top: -3px;
+  border-left: 3px solid var(--ink);
+  border-bottom: 3px solid var(--ink);
+  transform: rotate(-45deg) scale(0);
+  transition: transform 0.2s;
+}
+
+.check-item input:checked {
+  background: var(--mint);
+}
+
+.check-item input:checked::after {
+  transform: rotate(-45deg) scale(1);
+}
+
+.check-item input:checked + .check-item__text {
+  color: var(--ink-soft);
+  text-decoration: line-through;
+}
+
+.check-item__hint {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+
+/* ---------- 住宿資訊 ---------- */
+.lodging__name {
+  font-size: 1.1rem;
+}
+
+.lodging__dates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.lodging__date {
+  padding: 8px 10px;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-sm);
+}
+
+.lodging__date:first-child { background: var(--mint); }
+.lodging__date:last-child  { background: var(--peach); }
+
+.lodging__date dt,
+.lodging__info dt {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+.lodging__info {
+  display: grid;
+  gap: 8px;
+}
+
+.lodging__map {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 6px 16px;
+  border: var(--line) solid var(--ink);
+  border-radius: 999px;
+  background: var(--butter);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+}
+
+/* ---------- SVG 插圖共用 ---------- */
+.ink {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ink--thin {
+  stroke-width: 1.6;
+}
+
+.f-white  { fill: var(--card); }
+.f-ink    { fill: var(--ink); }
+.f-peach  { fill: var(--peach); }
+.f-mint   { fill: var(--mint); }
+.f-sky    { fill: var(--sky); }
+.f-butter { fill: var(--butter); }
+.f-rose   { fill: var(--rose); }
+.f-green  { fill: var(--green); }
+.f-teal   { fill: var(--teal); }
+.no-stroke { stroke: none; }

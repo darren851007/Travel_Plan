@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#FFFCF6">
+  <title>首爾冬日小旅行</title>
+
+  <!-- 字型 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Huninn&display=swap">
+
+  <!-- 樣式：變數 → 基礎 → 版面 → 元件 → 動畫 -->
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/motion.css">
+
+  <!-- 程式：資料 → 共用工具 → 功能模組 → 進入點（defer 依序執行，不需伺服器） -->
+  <script defer src="js/data/trip-data.js"></script>
+  <script defer src="js/core/utils.js"></script>
+  <script defer src="js/core/art.js"></script>
+  <script defer src="js/modules/nav.js"></script>
+  <script defer src="js/modules/countdown.js"></script>
+  <script defer src="js/modules/flights.js"></script>
+  <script defer src="js/modules/itinerary.js"></script>
+  <script defer src="js/modules/checklist.js"></script>
+  <script defer src="js/modules/lodging.js"></script>
+  <script defer src="js/main.js"></script>
+</head>
+<body>
+  <!-- ========== 頂端固定選單 ========== -->
+  <header class="topnav">
+    <nav class="container topnav__inner" aria-label="主選單">
+      <a class="brand" href="#home">
+        <span class="brand__icon" data-art="planeIcon"></span>
+        <span class="brand__text" data-text="brand">首爾小旅行</span>
+      </a>
+      <div class="nav-links">
+        <a class="nav-link" href="#flights">航班</a>
+        <a class="nav-link" href="#itinerary">行程</a>
+        <a class="nav-link" href="#prep">準備清單</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ========== 首頁：插圖 + 標題 + 倒數 ========== -->
+    <section id="home" class="hero container">
+      <div class="hero__art" data-art="hero"></div>
+      <span class="pill hero__eyebrow" data-text="dateRange">2026.12.18 – 12.22</span>
+      <h1 class="hero__title" data-text="title">首爾冬日小旅行</h1>
+      <p class="hero__sub" data-text="subtitle">5 天 4 夜 · 景福宮、韓屋村與漢江夜景</p>
+
+      <div class="countdown" id="countdown" role="timer">
+        <p class="countdown__label">距離出發還有</p>
+        <div class="countdown__grid">
+          <div class="countdown__cell"><span class="countdown__num" data-unit="days">–</span><span class="countdown__unit">天</span></div>
+          <div class="countdown__cell"><span class="countdown__num" data-unit="hours">–</span><span class="countdown__unit">時</span></div>
+          <div class="countdown__cell"><span class="countdown__num" data-unit="minutes">–</span><span class="countdown__unit">分</span></div>
+          <div class="countdown__cell"><span class="countdown__num" data-unit="seconds">–</span><span class="countdown__unit">秒</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 航班 ========== -->
+    <section id="flights" class="section container">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">航班</h2>
+          <p class="section-sub">去程與回程資訊</p>
+        </div>
+      </div>
+      <div class="stack stack--2" id="flight-list"></div>
+    </section>
+
+    <!-- ========== 每日行程 ========== -->
+    <section id="itinerary" class="section container">
+      <div class="section-head">
+        <div class="section-head__art" data-art="subway"></div>
+        <div>
+          <h2 class="section-title">每日行程</h2>
+          <p class="section-sub">點選日期切換 · ★ 為必去景點</p>
+        </div>
+      </div>
+
+      <div class="legend" id="transport-legend" aria-label="交通方式顏色說明"></div>
+      <div class="day-tabs" id="day-tabs" role="tablist" aria-label="選擇日期"></div>
+      <div class="day-panel" id="day-panel" role="tabpanel"></div>
+    </section>
+
+    <!-- ========== 準備清單 + 住宿 ========== -->
+    <section id="prep" class="section container">
+      <div class="section-head">
+        <div class="section-head__art" data-art="suitcase"></div>
+        <div>
+          <h2 class="section-title">準備清單</h2>
+          <p class="section-sub">打勾會記在這台裝置上</p>
+        </div>
+      </div>
+
+      <div class="stack stack--2">
+        <div class="card">
+          <h3 class="card__title">待辦事項</h3>
+          <div class="progress">
+            <div class="progress__track" role="progressbar" aria-label="準備進度" aria-valuemin="0">
+              <div class="progress__bar" id="checklist-bar"></div>
+            </div>
+            <span id="checklist-count">0 / 0</span>
+          </div>
+          <ul id="checklist"></ul>
+        </div>
+
+        <div class="card">
+          <h3 class="card__title">
+            <span class="card__title-art" data-art="house"></span>
+            住宿資訊
+          </h3>
+          <div id="lodging"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">祝旅途愉快 · 안녕히 다녀오세요</div>
+  </footer>
+</body>
+</html>

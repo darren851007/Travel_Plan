@@ -1,0 +1,35 @@
+/* ============================================================
+   設計變數（顏色、字型、尺寸）— 想換風格只要改這裡
+   ============================================================ */
+:root {
+  /* 底色與線條 */
+  --paper: #FFFCF6;          /* 和紙白 */
+  --card: #FFFFFF;
+  --ink: #3B3A3C;            /* 墨灰 */
+  --ink-soft: #77727A;
+  --line: 3px;               /* 粗框線 */
+  --dash: #E8E0D2;
+
+  /* 韓系粉彩色 */
+  --peach: #FFD9C7;
+  --mint: #CFEBDC;
+  --sky: #D3E6F7;
+  --sky-soft: #EAF3FB;
+  --butter: #FFEFB5;
+  --butter-soft: #FFF8DC;
+  --lilac: #E4DCF6;
+  --rose: #F9CAD4;
+  --sand: #EADFCB;
+  --green: #A9D8BC;
+  --teal: #9EC3B8;
+
+  /* 字型 */
+  --font: "Huninn", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+
+  /* 尺寸 */
+  --nav-h: 60px;
+  --radius: 18px;
+  --radius-sm: 12px;
+  --shadow: 4px 4px 0 var(--ink);
+  --shadow-sm: 3px 3px 0 var(--ink);
+}

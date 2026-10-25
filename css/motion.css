@@ -1,0 +1,91 @@
+/* ============================================================
+   動畫：插圖輕輕動、切換日期彈跳
+   並支援「減少動態效果」(prefers-reduced-motion)
+   ============================================================ */
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+@keyframes drift {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  50%      { transform: translate(10px, -6px) rotate(-3deg); }
+}
+
+@keyframes wave {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-40px); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.08); }
+}
+
+@keyframes chug {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-2px); }
+}
+
+@keyframes sway {
+  0%, 100% { transform: rotate(-4deg); }
+  50%      { transform: rotate(4deg); }
+}
+
+@keyframes bounce-in {
+  0%   { opacity: 0; transform: translateY(18px) scale(0.98); }
+  55%  { opacity: 1; transform: translateY(-6px) scale(1.01); }
+  78%  { transform: translateY(3px); }
+  100% { transform: none; }
+}
+
+@keyframes pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.12); }
+  70%  { transform: scale(0.96); }
+  100% { transform: scale(1); }
+}
+
+/* SVG 內的動畫元素：以自身為中心旋轉／縮放 */
+.art [class*="anim-"] {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.anim-float      { animation: float 5s ease-in-out infinite; }
+.anim-float-slow { animation: float 7s ease-in-out -2s infinite; }
+.anim-plane      { animation: drift 6s ease-in-out infinite; }
+.anim-pulse      { animation: pulse 4s ease-in-out infinite; }
+.anim-wave       { animation: wave 3s linear infinite; }
+.anim-wave-slow  { animation: wave 5s linear infinite reverse; }
+.anim-chug       { animation: chug 0.9s ease-in-out infinite; }
+.art .anim-sway  { animation: sway 3.2s ease-in-out infinite; transform-origin: 50% 100%; }
+
+/* 切換日期：選中的標籤彈一下，下方時間軸依序彈入 */
+.day-tab[aria-selected="true"] {
+  animation: pop 0.45s ease;
+}
+
+.day-panel.is-bouncing {
+  animation: bounce-in 0.55s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+
+.day-panel.is-bouncing .tl-item {
+  animation: bounce-in 0.5s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+/* ---------- 減少動態效果 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
