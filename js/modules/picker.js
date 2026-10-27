@@ -41,7 +41,7 @@ Trip.picker = {
     this.list.innerHTML = trips
       .map(
         (t, i) => `
-<article class="card trip-card" style="--i:${i}">
+<article class="card trip-card" style="--i:${i}" data-trip="${esc(t.id)}">
   <div class="trip-card__art">${Trip.art.get(t.art)}</div>
   <div class="trip-card__body">
     <p class="trip-card__country">
@@ -65,6 +65,19 @@ Trip.picker = {
       .join("") + this.newTripCard(trips.length);
     Trip.newTrip?.refresh();
     this.updateActions();
+    this.showPhotos();
+  },
+
+  /* 有封面照片的行程：卡片左邊的插圖換成照片 */
+  async showPhotos() {
+    for (const card of this.list.querySelectorAll(".trip-card[data-trip]")) {
+      const dest = Trip.destinations.find((d) => d.id === card.dataset.trip);
+      const url = await Trip.photos.url(dest);
+      if (!url || !card.isConnected) continue;
+      const art = card.querySelector(".trip-card__art");
+      art.classList.add("trip-card__art--photo");
+      art.innerHTML = `<img src="${Trip.utils.esc(url)}" alt="" loading="lazy">`;
+    }
   },
 
   /* 只有能刪除的行程顯示刪除鈕（Notion 登入狀態是之後才知道的，面板也會呼叫） */

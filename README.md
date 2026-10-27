@@ -31,6 +31,8 @@
 - **準備清單**：可打勾，依行程分開記在瀏覽器
 - **住宿**：每個城市一間，入住／退房日依行程自動計算
 - **航班卡片**顯示航空公司 logo（依航班號碼代碼，例如 CI、BR；清單在 `js/data/airlines.js`，圖片由 pics.avs.io 提供）
+- **封面照片**：新增行程、編輯行程資訊時可選一張照片（瀏覽器先縮小成最長邊 1600 像素的 JPEG），顯示在行程首頁與「我的旅行」卡片；這台裝置與 Notion 的行程存在瀏覽器（IndexedDB，不上傳），共編行程上傳到共編房間，大家都看得到；分享連結不含照片
+- **自動帶入航班資料**（Cloudflare 版，需設定 `AERODATABOX_KEY`）：填好航班號碼後依行程日期查 AeroDataBox，帶入機型、出發／抵達航廈、起降時間與飛行時間；使用者自己改過的欄位不會被覆蓋；同一航班與日期快取 12 小時
 - 插圖會輕輕動，支援「減少動態效果」
 
 ## 架構
@@ -72,6 +74,7 @@ server/                 Cloudflare Worker
   api/status.js         登入狀態、是否開啟共同編輯
   api/rooms.js          建立／讀取共編行程、WebSocket 連線
   api/auth/             login、callback、logout（Notion OAuth）
+  api/flights.js        查詢真實航班（機型、航廈、時間）
   api/notion/           pages、countries、country、create-country、seed、archive-country、
                         row（新增／修改／刪除一列）、day（編輯一整天的主題與城市）
 lib/                    Worker 共用：notion（表單設計與讀寫）、session（加密 Cookie）、http、cities
@@ -93,6 +96,7 @@ scripts/build.mjs       打包網頁到 dist/site（只含網頁檔案）
    npx wrangler secret put NOTION_CLIENT_ID
    npx wrangler secret put NOTION_CLIENT_SECRET
    npx wrangler secret put SESSION_SECRET   # 隨機 48 字元以上，例如 openssl rand -base64 48
+   npx wrangler secret put AERODATABOX_KEY  # 選填：RapidAPI 上訂閱 AeroDataBox 後的金鑰，用來自動帶入機型與航廈
    ```
 5. 再執行一次 `npm run deploy`
 

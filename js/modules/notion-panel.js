@@ -201,7 +201,7 @@ Trip.notionPanel = {
   async createTrip(dest, order, report = (...args) => this.message(...args)) {
     const config = Trip.notionCache.config();
     report(`建立「${dest.name}」頁面…`, "pending");
-    const { tables } = await this.request("POST", "notion/create-country", { parent: this.parent.id, dest, config });
+    const { pageId, tables } = await this.request("POST", "notion/create-country", { parent: this.parent.id, dest, config });
 
     for (const kind of this.KINDS) {
       let next = 0;
@@ -212,6 +212,7 @@ Trip.notionPanel = {
       }
     }
     this.scan = await this.request("POST", "notion/countries", { parent: this.parent.id });
+    return { pageId };
   },
 
   /* 把「存在這台裝置」的行程存到 Notion：成功的會從這台裝置移除，然後同步

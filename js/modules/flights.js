@@ -47,7 +47,9 @@ Trip.flights = {
 
   <dl class="flight__meta">
     <div><dt>日期</dt><dd>${day.md}（${day.weekday}）</dd></div>
+    ${f.aircraft ? `<div><dt>機型</dt><dd>${esc(f.aircraft)}</dd></div>` : ""}
     <div><dt>出發航廈</dt><dd>${esc(f.from.terminal)}</dd></div>
+    ${f.to.terminal ? `<div><dt>抵達航廈</dt><dd>${esc(f.to.terminal)}</dd></div>` : ""}
     ${passengers.length ? "" : `<div><dt>座位</dt><dd>${esc(f.seat)}</dd></div>`}
     <div><dt>行李</dt><dd>${esc(f.baggage)}</dd></div>
   </dl>

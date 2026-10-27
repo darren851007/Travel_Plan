@@ -4,6 +4,7 @@
    - Notion 同步的行程（需登入）：寫進 Notion 的「航班」表
    機場依行程城市預先帶入（去程：台灣 → 第一天的城市；回程：最後一天的城市 → 台灣）
    去程、回程各一筆；兩筆都有時「新增航班」自動隱藏（存檔都走 js/core/editor.js）
+   網站有設定航班查詢時（Cloudflare），填好航班號碼會自動查真實航班，帶入機型、航廈、起降時間
    ============================================================ */
 window.Trip = window.Trip || {};
 
@@ -27,7 +28,7 @@ Trip.addFlight = {
     this.remove = $("add-flight-delete");
     const field = (name) => $(`add-flight-${name}`);
     this.f = Object.fromEntries(
-      ["type", "number", "airline", "from-code", "from-city", "from-time", "from-terminal",
+      ["type", "number", "airline", "aircraft", "lookup", "from-code", "from-city", "from-time", "from-terminal",
         "to-code", "to-city", "to-time", "to-terminal", "duration", "baggage", "passengers", "passenger-add", "date", "msg", "submit"]
         .map((name) => [name, field(name)])
     );
@@ -35,7 +36,10 @@ Trip.addFlight = {
     this.openButton.addEventListener("click", () => this.open());
     $("add-flight-cancel").addEventListener("click", () => this.dialog.close());
     this.remove.addEventListener("click", () => this.confirmDelete());
-    this.f.type.addEventListener("change", () => this.applyTypeDefaults());
+    this.f.type.addEventListener("change", () => {
+      this.applyTypeDefaults();
+      this.scheduleLookup(0);
+    });
 
     /* 旅客：每列一位（姓名＋座位），可以新增、移除 */
     this.f["passenger-add"].addEventListener("click", () => {
@@ -57,9 +61,16 @@ Trip.addFlight = {
         this.f.airline.value = Trip.airlines[code];
         this.airlineAuto = true;
       }
+      this.scheduleLookup();
     });
     this.f.airline.addEventListener("input", () => {
       this.airlineAuto = false;
+    });
+
+    /* 使用者自己改過的欄位，查詢結果不會覆蓋 */
+    this.form.addEventListener("input", (e) => {
+      const name = e.target.id?.replace("add-flight-", "");
+      if (name && name !== "number") this.touched.add(name);
     });
 
     /* 航班卡片上的「編輯」（卡片由 js/modules/flights.js 產生） */
@@ -128,6 +139,7 @@ Trip.addFlight = {
     };
     set("number", flight.number);
     set("airline", flight.airline);
+    set("aircraft", flight.aircraft);
     set("from-code", flight.from?.code);
     set("from-city", flight.from?.city);
     set("from-time", flight.from?.time);
@@ -156,12 +168,16 @@ Trip.addFlight = {
 </label>`
       )
       .join("");
-    for (const name of ["number", "airline", "from-time", "from-terminal", "to-time", "to-terminal", "duration", "baggage"]) {
+    for (const name of ["number", "airline", "aircraft", "from-time", "from-terminal", "to-time", "to-terminal", "duration", "baggage"]) {
       this.f[name].value = "";
     }
     this.f.passengers.innerHTML = "";
     this.refreshPassengerAdd();
     this.airlineAuto = false;
+    this.touched = new Set();
+    clearTimeout(this.lookupTimer);
+    this.lookupSeq = (this.lookupSeq || 0) + 1;
+    this.lookupHint("");
 
     /* 城市的機場代碼要讀城市清單；讀不到也能手動填 */
     try {
@@ -216,12 +232,91 @@ Trip.addFlight = {
       type: this.selectedType(),
       number: v("number").toUpperCase(),
       airline: v("airline"),
+      aircraft: v("aircraft"),
       from: { code: v("from-code").toUpperCase(), city: v("from-city"), time: v("from-time"), terminal: v("from-terminal") },
       to: { code: v("to-code").toUpperCase(), city: v("to-city"), time: v("to-time"), terminal: v("to-terminal") },
       duration: v("duration"),
       baggage: v("baggage"),
       passengers: this.collectPassengers(),
     };
+  },
+
+  /* ---------- 查詢真實航班 ---------- */
+
+  lookupAvailable() {
+    return Boolean(Trip.notionPanel?.status?.flightLookup);
+  },
+
+  flightDate() {
+    const days = this.trip.days;
+    return this.selectedType() === "去程" ? days[0].date : days[days.length - 1].date;
+  },
+
+  /* 打字停下來一下再查，避免每打一個字就查一次 */
+  scheduleLookup(delay = 700) {
+    clearTimeout(this.lookupTimer);
+    if (!this.lookupAvailable() || !this.dialog.open) return;
+    const number = this.f.number.value.replace(/\s+/g, "").toUpperCase();
+    if (!/^[A-Z0-9]{2,3}\d{1,4}[A-Z]?$/.test(number)) {
+      this.lookupHint("");
+      return;
+    }
+    this.lookupTimer = setTimeout(() => this.lookup(number), delay);
+  },
+
+  async lookup(number) {
+    const seq = ++this.lookupSeq;
+    const date = this.flightDate();
+    this.lookupHint(`查詢 ${number}（${date}）的航班資料…`);
+    try {
+      const { flight } = await Trip.notionPanel.request("POST", "flights/lookup", {
+        number, date, from: this.selectedType() === "去程" ? this.HOME.code : this.f["from-code"].value.trim(),
+      });
+      if (seq !== this.lookupSeq) return;
+      if (!flight) {
+        this.lookupHint(`查不到 ${number} 在 ${date} 的航班，請手動填寫（日期太遠的航班可能還沒公布）`);
+        return;
+      }
+      const filled = this.applyLookup(flight);
+      this.lookupHint(filled.length ? `已自動帶入：${filled.join("、")}（可以再修改）` : "查到航班，但沒有新的資料可以帶入");
+    } catch (err) {
+      if (seq === this.lookupSeq) this.lookupHint(err.message || "航班查詢失敗，請手動填寫");
+    }
+  },
+
+  /* 把查到的資料填進還沒被使用者改過的欄位，回傳填了哪些 */
+  applyLookup(flight) {
+    const filled = new Set();
+    const fill = (name, value, label) => {
+      if (!value || this.touched.has(name) || this.f[name].value === value) return;
+      this.f[name].value = value;
+      filled.add(label);
+    };
+    /* 航空公司：已經依航班號碼帶入中文名稱就保留，空白才用查到的（英文）名稱 */
+    if (!this.f.airline.value.trim()) fill("airline", flight.airline, "航空公司");
+    fill("aircraft", flight.aircraft, "機型");
+    for (const side of ["from", "to"]) {
+      const p = flight[side] || {};
+      if (p.code && p.code !== this.f[`${side}-code`].value.trim().toUpperCase() && !this.touched.has(`${side}-code`)) {
+        fill(`${side}-code`, p.code, "機場");
+        fill(`${side}-city`, this.cityName(p.code, p.city), "機場");
+      }
+      fill(`${side}-time`, p.time, "起降時間");
+      fill(`${side}-terminal`, p.terminal, side === "from" ? "出發航廈" : "抵達航廈");
+    }
+    fill("duration", flight.duration, "飛行時間");
+    return [...filled];
+  },
+
+  /* 機場代碼換成網頁上的中文城市名（沒有就用查到的英文名） */
+  cityName(code, fallback) {
+    if (code === this.HOME.code) return this.HOME.city;
+    return this.cities.find((c) => c.airport === code)?.name || fallback || "";
+  },
+
+  lookupHint(text) {
+    this.f.lookup.textContent = text;
+    this.f.lookup.hidden = !text;
   },
 
   /* ---------- 旅客 ---------- */

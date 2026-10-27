@@ -66,6 +66,7 @@ Trip.tripDelete = {
         Trip.addItem.toast("刪除失敗：這個瀏覽器不允許儲存資料");
         return false;
       }
+      Trip.photos.forget(dest);
       this.done(`已刪除「${dest.title}」`);
       return true;
     }

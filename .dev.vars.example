@@ -4,3 +4,5 @@ NOTION_CLIENT_ID=
 NOTION_CLIENT_SECRET=
 # 加密登入 Cookie 用的隨機字串（至少 32 字元），例如：openssl rand -base64 48
 SESSION_SECRET=
+# 查詢真實航班（機型、航廈、起降時間）用的 RapidAPI 金鑰，訂閱 AeroDataBox 後取得；不填就只能手動輸入
+AERODATABOX_KEY=

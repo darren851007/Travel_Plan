@@ -44,6 +44,8 @@ Trip.rooms = {
   docOf(dest) {
     const { id, room, version, local, shared, sharedFrom, notionPageId, settingsId, checklistIsFull, order, ...doc } = dest;
     const copy = JSON.parse(JSON.stringify(doc));
+    /* 這台裝置的照片不在房間裡，建立共編後另外上傳 */
+    if (!String(copy.cover || "").startsWith("room:")) delete copy.cover;
     if (!checklistIsFull) copy.checklist = [...Trip.config.checklistBefore, ...(copy.checklist || []), ...Trip.config.checklistAfter];
     Trip.localTrips.addUids([copy]);
     copy.flights = copy.flights || {};
@@ -123,7 +125,21 @@ Trip.collab = {
     const trip = Trip.rooms.docOf(dest);
     const result = await Trip.notionPanel.request("POST", "rooms", { trip });
     const live = Trip.rooms.receive(result.roomId, result.version, result.trip);
-    if (dest.local) Trip.localTrips.remove(dest.id);
+
+    /* 原本有封面照片：上傳到房間（失敗就算了，之後可以再加） */
+    const cover = Trip.photos.coverOf(dest);
+    if (cover?.startsWith("dev:")) {
+      try {
+        const blob = await Trip.photos.tx("readonly", (s) => s.get(cover.slice(4)));
+        if (blob) await Trip.photos.setRoomCover(live, blob);
+      } catch {
+        /* 照片沒上傳成功不影響共編 */
+      }
+    }
+    if (dest.local) {
+      Trip.localTrips.remove(dest.id);
+      Trip.photos.forget(dest);
+    }
     return live;
   },
 

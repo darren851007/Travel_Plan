@@ -1,7 +1,8 @@
 /* ============================================================
    通用編輯對話框：依欄位設定產生表單（住宿、清單、旅程設定、編輯這一天）
    Trip.editDialog.open({ title, fields, values, submitLabel, onSubmit, onDelete })
-   - fields：[{ name, label, type: text|date|time|textarea, placeholder, required, options（建議清單）, half }]
+   - fields：[{ name, label, type: text|date|time|textarea|photo, placeholder, required, options（建議清單）, half }]
+     photo：照片欄位（js/core/photos.js），values 給目前照片網址；送出時的值是 { changed, blob }
    - onSubmit(values)：回傳 Promise；丟出錯誤會顯示在對話框裡
    - onDelete()：有給才顯示「刪除」（按兩次才刪）
    ============================================================ */
@@ -41,6 +42,13 @@ Trip.editDialog = {
     this.body.innerHTML = fields
       .map((f) => {
         const id = `edit-field-${f.name}`;
+        if (f.type === "photo") {
+          return `
+<div class="field">
+  <span class="field__label">${esc(f.label)}</span>
+  <div id="${id}"></div>
+</div>`;
+        }
         const value = esc(values[f.name] ?? "");
         const common = `id="${id}" name="${esc(f.name)}" ${f.placeholder ? `placeholder="${esc(f.placeholder)}"` : ""} ${f.required ? "required" : ""} autocomplete="off"`;
         const control =
@@ -57,6 +65,12 @@ Trip.editDialog = {
       })
       .join("");
 
+    this.photos = Object.fromEntries(
+      fields
+        .filter((f) => f.type === "photo")
+        .map((f) => [f.name, Trip.photos.field(document.getElementById(`edit-field-${f.name}`), values[f.name])])
+    );
+
     this.remove.hidden = !onDelete;
     Trip.tripDelete.reset(this.remove, "刪除");
     this.message("");
@@ -67,12 +81,18 @@ Trip.editDialog = {
 
   collect() {
     return Object.fromEntries(
-      this.options.fields.map((f) => [f.name, this.form.elements[f.name].value.trim()])
+      this.options.fields.map((f) =>
+        [f.name, f.type === "photo" ? this.photos[f.name].state() : this.form.elements[f.name].value.trim()]
+      )
     );
   },
 
   async save() {
     const values = this.collect();
+    if (Object.values(this.photos).some((p) => p.state().busy)) {
+      this.message("照片還在處理中，請稍等一下", "pending");
+      return;
+    }
     const missing = this.options.fields.find((f) => f.required && !values[f.name]);
     if (missing) {
       this.message(`請填寫${missing.label}`, "error");

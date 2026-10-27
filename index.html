@@ -29,6 +29,7 @@
   <script defer src="js/core/share.js"></script>
   <script defer src="js/core/collab.js"></script>
   <script defer src="js/core/utils.js"></script>
+  <script defer src="js/core/photos.js"></script>
   <script defer src="js/core/builder.js"></script>
   <script defer src="js/core/state.js"></script>
   <script defer src="js/core/router.js"></script>
@@ -99,6 +100,7 @@
     <!-- 首頁：插圖 + 標題 + 倒數 -->
     <section id="home" class="hero container">
       <div class="hero__art" id="hero-art"></div>
+      <figure class="hero__photo" id="hero-photo" hidden><img alt=""></figure>
       <span class="pill hero__eyebrow" data-text="dateRange"></span>
       <h1 class="hero__title" data-text="title"></h1>
       <p class="hero__sub" data-text="subtitle"></p>
@@ -359,6 +361,12 @@
         </label>
       </div>
 
+      <label class="field">
+        <span class="field__label">機型</span>
+        <input id="add-flight-aircraft" maxlength="50" placeholder="例如：Boeing 787-10" autocomplete="off">
+      </label>
+      <p class="field__hint" id="add-flight-lookup" hidden></p>
+
       <fieldset class="dialog__fieldset flight-form__group">
         <legend class="field__label">出發</legend>
         <div class="dialog__row">
@@ -432,6 +440,11 @@
           <span class="field__label">標題</span>
           <input id="new-trip-name" name="title" maxlength="100" autocomplete="off">
         </label>
+      </div>
+
+      <div class="field">
+        <span class="field__label">封面照片（選填）</span>
+        <div id="new-trip-photo"></div>
       </div>
 
       <p class="new-trip__summary" id="new-trip-summary"></p>

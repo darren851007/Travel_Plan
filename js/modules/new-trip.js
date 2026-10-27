@@ -3,6 +3,7 @@
    先填好每天的預設行程、每個城市的住宿；航班之後在行程頁按「＋ 新增航班」
    - 已登入 Notion：建立到使用者自己的 Notion（國家頁面＋5 張表）
    - 沒有 Notion（例如 GitHub Pages）：存在這台裝置的瀏覽器
+   可以選一張封面照片（js/core/photos.js，照片存在這台裝置）
    ============================================================ */
 window.Trip = window.Trip || {};
 
@@ -25,6 +26,7 @@ Trip.newTrip = {
       msg: $("new-trip-msg"),
       submit: $("new-trip-submit"),
       cancel: $("new-trip-cancel"),
+      photo: $("new-trip-photo"),
     };
     const f = this.fields;
 
@@ -90,6 +92,7 @@ Trip.newTrip = {
 
   async open() {
     const f = this.fields;
+    this.photo = Trip.photos.field(f.photo, null);
     this.message("");
     this.setSaving(false);
     this.dialog.showModal();
@@ -208,9 +211,15 @@ Trip.newTrip = {
       return;
     }
 
+    const photo = this.photo.state();
+    if (photo.busy) {
+      this.message("照片還在處理中，請稍等一下", "pending");
+      return;
+    }
+
     const dest = this.buildDest();
     if (!this.usesNotion()) {
-      this.saveLocal(dest);
+      await this.saveLocal(dest, photo.blob);
       return;
     }
 
@@ -218,7 +227,14 @@ Trip.newTrip = {
     const report = (...args) => panel.renderMessage(this.fields.msg, ...args);
     this.setSaving(true);
     try {
-      await panel.createTrip(dest, panel.scan.countries.length + 1, report);
+      const { pageId } = await panel.createTrip(dest, panel.scan.countries.length + 1, report);
+      if (photo.blob) {
+        try {
+          await Trip.photos.setCover({ notionPageId: pageId }, photo.blob);
+        } catch {
+          /* 照片存不了不影響行程，之後可以在「編輯行程資訊」再加 */
+        }
+      }
       /* 同步完成重新載入時，直接打開這趟新行程 */
       history.replaceState(null, "", `${location.pathname}#/${encodeURIComponent(dest.id)}`);
       await panel.sync(report);
@@ -230,7 +246,7 @@ Trip.newTrip = {
   },
 
   /* 存在這台裝置：加入清單後直接打開這趟行程 */
-  saveLocal(dest) {
+  async saveLocal(dest, photoBlob) {
     const trip = Trip.localTrips.add({
       ...dest,
       id: Trip.localTrips.newId(),
@@ -240,10 +256,18 @@ Trip.newTrip = {
       this.message("這個瀏覽器不允許儲存資料（例如無痕模式），無法建立行程", "error");
       return;
     }
+    let note = "";
+    if (photoBlob) {
+      try {
+        await Trip.photos.setCover(trip, photoBlob);
+      } catch (err) {
+        note = `（照片沒有存成功：${err.message}）`;
+      }
+    }
     this.dialog.close();
     Trip.picker.render();
     location.hash = `#/${encodeURIComponent(trip.id)}`;
-    Trip.addItem.toast(`已建立「${trip.title}」`);
+    Trip.addItem.toast(`已建立「${trip.title}」${note}`);
   },
 
   /* 把表單內容組成和內建範例相同格式的行程（存到 Notion 或這台裝置） */

@@ -2,6 +2,7 @@
    Cloudflare Worker 進入點：網頁檔案由 Static Assets 提供，/api/* 由這裡處理
    - Notion 登入與轉接：server/api/auth、server/api/notion
    - 共同編輯：server/api/rooms.js 與 server/room.js（Durable Object）
+   - 查詢真實航班：server/api/flights.js（AeroDataBox）
    ============================================================ */
 import * as status from "./api/status.js";
 import * as login from "./api/auth/login.js";
@@ -16,6 +17,7 @@ import * as row from "./api/notion/row.js";
 import * as day from "./api/notion/day.js";
 import * as archiveCountry from "./api/notion/archive-country.js";
 import { createRoom, roomRequest } from "./api/rooms.js";
+import { lookup as flightLookup } from "./api/flights.js";
 import { errorJson } from "../lib/http.js";
 
 export { TripRoom } from "./room.js";
@@ -34,6 +36,7 @@ const routes = {
   "POST /api/notion/day": day.onRequestPost,
   "POST /api/notion/archive-country": archiveCountry.onRequestPost,
   "POST /api/rooms": createRoom,
+  "POST /api/flights/lookup": flightLookup,
 };
 
 export default {
@@ -46,6 +49,10 @@ export default {
 
     const room = url.pathname.match(/^\/api\/rooms\/([^/]+)(\/ws)?$/);
     if (room && request.method === "GET") return roomRequest(context, room[1], Boolean(room[2]));
+    const cover = url.pathname.match(/^\/api\/rooms\/([^/]+)\/cover$/);
+    if (cover && (request.method === "POST" || request.method === "DELETE")) return roomRequest(context, cover[1], false);
+    const photo = url.pathname.match(/^\/api\/rooms\/([^/]+)\/photos\/[^/]+$/);
+    if (photo && request.method === "GET") return roomRequest(context, photo[1], false);
 
     if (url.pathname.startsWith("/api/")) return errorJson("找不到這個功能", 404);
     return env.ASSETS.fetch(request);

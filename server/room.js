@@ -3,12 +3,27 @@
    - 保存行程內容與版本號
    - 用 WebSocket 連著每個正在看的人；有人存檔就立刻推給其他人
    - 版本號不符（同時有人改過）時回傳最新內容，讓網頁重新套用自己的修改
+   - 封面照片：存在房間裡（photo:<id>），換照片時刪掉舊的，同一時間只留一張
    使用 Hibernation API：沒有訊息時不佔執行時間，免費額度內即可使用
    ============================================================ */
 import { DurableObject } from "cloudflare:workers";
 
 const MAX_TRIP_BYTES = 200_000;
 const MAX_PEOPLE = 30;
+const MAX_PHOTO_BYTES = 1_500_000;
+const PHOTO_ID = /^[A-Za-z0-9_-]{1,40}$/;
+
+/* 只收 JPEG、PNG、WebP（看檔案開頭，不只看 Content-Type） */
+function photoType(bytes) {
+  const b = new Uint8Array(bytes.slice(0, 12));
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return "image/png";
+  const ascii = String.fromCharCode(...b);
+  if (ascii.startsWith("RIFF") && ascii.slice(8, 12) === "WEBP") return "image/webp";
+  return null;
+}
+
+const coverId = (trip) => String(trip?.cover || "").match(/^room:([A-Za-z0-9_-]{1,40})$/)?.[1] || null;
 
 /* 只接受看起來像行程的資料 */
 function validTrip(trip) {
@@ -38,6 +53,27 @@ export class TripRoom extends DurableObject {
     const state = await this.state();
     if (!state) return Response.json({ error: "找不到這個共編行程" }, { status: 404 });
 
+    /* 讀照片 */
+    const photo = url.pathname.match(/\/photos\/([^/]+)$/);
+    if (photo && request.method === "GET") {
+      if (!PHOTO_ID.test(photo[1])) return Response.json({ error: "找不到照片" }, { status: 404 });
+      const saved = await this.ctx.storage.get(`photo:${photo[1]}`);
+      if (!saved) return Response.json({ error: "找不到照片" }, { status: 404 });
+      return new Response(saved.data, {
+        headers: {
+          "Content-Type": saved.type,
+          "Cache-Control": "private, max-age=31536000, immutable",
+          "X-Content-Type-Options": "nosniff",
+          "Content-Security-Policy": "default-src 'none'; sandbox",
+        },
+      });
+    }
+
+    /* 換封面（POST 照片內容）或移除（DELETE） */
+    if (url.pathname.endsWith("/cover") && (request.method === "POST" || request.method === "DELETE")) {
+      return this.setCover(request, state);
+    }
+
     /* 即時連線 */
     if (request.headers.get("Upgrade") === "websocket") {
       if (this.ctx.getWebSockets().length >= MAX_PEOPLE) {
@@ -51,6 +87,35 @@ export class TripRoom extends DurableObject {
 
     /* 讀取目前內容 */
     return Response.json(state);
+  }
+
+  async setCover(request, state) {
+    let next = state.trip;
+    let newId = null;
+    if (request.method === "POST") {
+      const length = Number(request.headers.get("Content-Length") || 0);
+      if (length > MAX_PHOTO_BYTES) return Response.json({ error: "照片太大了" }, { status: 413 });
+      const bytes = await request.arrayBuffer();
+      if (!bytes.byteLength) return Response.json({ error: "沒有收到照片" }, { status: 400 });
+      if (bytes.byteLength > MAX_PHOTO_BYTES) return Response.json({ error: "照片太大了" }, { status: 413 });
+      const type = photoType(bytes);
+      if (!type) return Response.json({ error: "只接受 JPEG、PNG、WebP 照片" }, { status: 415 });
+      newId = crypto.randomUUID().replace(/-/g, "");
+      await this.ctx.storage.put(`photo:${newId}`, { type, data: bytes });
+      next = { ...state.trip, cover: `room:${newId}` };
+    } else {
+      next = { ...state.trip };
+      delete next.cover;
+    }
+
+    const oldId = coverId(state.trip);
+    if (oldId && oldId !== newId) await this.ctx.storage.delete(`photo:${oldId}`);
+
+    const by = decodeURIComponent(request.headers.get("X-Trip-Name") || "").trim().slice(0, 30) || "訪客";
+    const saved = { version: state.version + 1, trip: next, updatedAt: new Date().toISOString() };
+    await this.ctx.storage.put("state", saved);
+    this.broadcast({ type: "state", ...saved, by });
+    return Response.json(saved);
   }
 
   send(ws, data) {
