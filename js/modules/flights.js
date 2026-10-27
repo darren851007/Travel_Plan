@@ -5,12 +5,16 @@ window.Trip = window.Trip || {};
 
 Trip.flights = {
   init() {
-    const list = document.getElementById("flight-list");
+    this.list = document.getElementById("flight-list");
+  },
+
+  render(trip, { animate }) {
+    const { list } = this;
     if (!list) return;
 
     const { esc, formatDate } = Trip.utils;
 
-    list.innerHTML = Trip.data.flights
+    list.innerHTML = trip.flights
       .map((f, i) => {
         const day = formatDate(f.date);
         return `
@@ -47,5 +51,7 @@ Trip.flights = {
 </article>`;
       })
       .join("");
+
+    if (animate) Trip.utils.replay(list);
   },
 };

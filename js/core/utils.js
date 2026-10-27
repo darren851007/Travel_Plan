@@ -28,8 +28,22 @@ window.Trip = window.Trip || {};
       return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
     },
 
+    /* "2026-12-18" + 4 → "2026-12-22" */
+    addDays(iso, days) {
+      const [y, m, d] = iso.split("-").map(Number);
+      const date = new Date(Date.UTC(y, m - 1, d + days));
+      return date.toISOString().slice(0, 10);
+    },
+
     prefersReducedMotion() {
       return reducedMotion.matches;
+    },
+
+    /* 移除再加回 class，讓動畫每次都重新播放 */
+    replay(el, className = "is-bouncing") {
+      el.classList.remove(className);
+      void el.offsetWidth;
+      el.classList.add(className);
     },
   };
 })();

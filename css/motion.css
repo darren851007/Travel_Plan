@@ -62,12 +62,12 @@
 .anim-chug       { animation: chug 0.9s ease-in-out infinite; }
 .art .anim-sway  { animation: sway 3.2s ease-in-out infinite; transform-origin: 50% 100%; }
 
-/* 切換日期：選中的標籤彈一下，下方時間軸依序彈入 */
+/* 切換日期／地點：選中的標籤彈一下，內容彈入、時間軸依序彈入 */
 .day-tab[aria-selected="true"] {
   animation: pop 0.45s ease;
 }
 
-.day-panel.is-bouncing {
+.is-bouncing {
   animation: bounce-in 0.55s cubic-bezier(0.3, 1.4, 0.5, 1);
 }
 

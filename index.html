@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#FFFCF6">
-  <title>首爾冬日小旅行</title>
+  <title>我的旅行</title>
 
   <!-- 字型 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,25 +18,35 @@
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/motion.css">
 
-  <!-- 程式：資料 → 共用工具 → 功能模組 → 進入點（defer 依序執行，不需伺服器） -->
-  <script defer src="js/data/trip-data.js"></script>
+  <!-- 程式：資料 → 核心 → 功能模組 → 進入點（defer 依序執行，不需伺服器） -->
+  <script defer src="js/data/config.js"></script>
+  <script defer src="js/data/destinations/korea.js"></script>
+  <script defer src="js/data/destinations/japan.js"></script>
+  <script defer src="js/data/notion-data.js"></script>
   <script defer src="js/core/utils.js"></script>
+  <script defer src="js/core/builder.js"></script>
+  <script defer src="js/core/state.js"></script>
+  <script defer src="js/core/router.js"></script>
   <script defer src="js/core/art.js"></script>
   <script defer src="js/modules/nav.js"></script>
+  <script defer src="js/modules/hero.js"></script>
+  <script defer src="js/modules/picker.js"></script>
   <script defer src="js/modules/countdown.js"></script>
   <script defer src="js/modules/flights.js"></script>
   <script defer src="js/modules/itinerary.js"></script>
   <script defer src="js/modules/checklist.js"></script>
   <script defer src="js/modules/lodging.js"></script>
+  <script defer src="js/modules/notion-panel.js"></script>
   <script defer src="js/main.js"></script>
 </head>
-<body>
+<body data-view="picker">
   <!-- ========== 頂端固定選單 ========== -->
   <header class="topnav">
     <nav class="container topnav__inner" aria-label="主選單">
-      <a class="brand" href="#home">
+      <a class="brand" href="#/">
+        <span class="brand__back" aria-hidden="true">‹</span>
         <span class="brand__icon" data-art="planeIcon"></span>
-        <span class="brand__text" data-text="brand">首爾小旅行</span>
+        <span class="brand__text" data-text="brand">我的旅行</span>
       </a>
       <div class="nav-links">
         <a class="nav-link" href="#flights">航班</a>
@@ -47,12 +57,37 @@
   </header>
 
   <main>
-    <!-- ========== 首頁：插圖 + 標題 + 倒數 ========== -->
+    <!-- ========== 第一個畫面：選擇行程 ========== -->
+    <div id="trips">
+      <section class="trips container">
+        <div class="trips__head">
+          <span class="pill hero__eyebrow">選擇行程</span>
+          <h1 class="trips__title">我的旅行</h1>
+          <p class="hero__sub" id="trip-count"></p>
+        </div>
+        <div class="trip-list" id="trip-list"></div>
+      </section>
+
+      <!-- Notion 連結（只在 npm start 本機伺服器時顯示） -->
+      <section id="notion" class="section container" hidden>
+        <div class="section-head">
+          <div>
+            <h2 class="section-title">Notion 連結</h2>
+            <p class="section-sub">一個國家一個 Notion 頁面，按一下就同步到網頁</p>
+          </div>
+        </div>
+        <div class="card notion" id="notion-panel"></div>
+      </section>
+    </div>
+
+    <!-- ========== 行程畫面 ========== -->
+    <div id="trip-view">
+    <!-- 首頁：插圖 + 標題 + 倒數 -->
     <section id="home" class="hero container">
-      <div class="hero__art" data-art="hero"></div>
-      <span class="pill hero__eyebrow" data-text="dateRange">2026.12.18 – 12.22</span>
-      <h1 class="hero__title" data-text="title">首爾冬日小旅行</h1>
-      <p class="hero__sub" data-text="subtitle">5 天 4 夜 · 景福宮、韓屋村與漢江夜景</p>
+      <div class="hero__art" id="hero-art"></div>
+      <span class="pill hero__eyebrow" data-text="dateRange"></span>
+      <h1 class="hero__title" data-text="title"></h1>
+      <p class="hero__sub" data-text="subtitle"></p>
 
       <div class="countdown" id="countdown" role="timer">
         <p class="countdown__label">距離出發還有</p>
@@ -62,6 +97,7 @@
           <div class="countdown__cell"><span class="countdown__num" data-unit="minutes">–</span><span class="countdown__unit">分</span></div>
           <div class="countdown__cell"><span class="countdown__num" data-unit="seconds">–</span><span class="countdown__unit">秒</span></div>
         </div>
+        <p class="countdown__done" hidden>出發囉！祝旅途愉快 ✈</p>
       </div>
     </section>
 
@@ -122,10 +158,14 @@
         </div>
       </div>
     </section>
+    </div>
   </main>
 
   <footer class="footer">
-    <div class="container">祝旅途愉快 · 안녕히 다녀오세요</div>
+    <div class="container">
+      <p>祝旅途愉快 · Have a nice trip</p>
+      <p class="footer__source" id="data-source"></p>
+    </div>
   </footer>
 </body>
 </html>

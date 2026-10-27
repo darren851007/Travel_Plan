@@ -10,6 +10,16 @@ Trip.nav = {
       .map((link) => document.querySelector(link.getAttribute("href")))
       .filter(Boolean);
 
+    /* 網址的 # 用來切換行程，所以選單改用捲動，不改網址 */
+    links.forEach((link) => {
+      link.addEventListener("click", (e) => {
+        const target = document.querySelector(link.getAttribute("href"));
+        if (!target) return;
+        e.preventDefault();
+        target.scrollIntoView({ behavior: Trip.utils.prefersReducedMotion() ? "auto" : "smooth" });
+      });
+    });
+
     if (!("IntersectionObserver" in window) || !sections.length) return;
 
     const setActive = (id) => {

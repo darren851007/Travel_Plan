@@ -8,33 +8,36 @@ Trip.countdown = {
     const root = document.getElementById("countdown");
     if (!root) return;
 
-    const target = new Date(Trip.data.departure).getTime();
-    const cells = {};
+    this.grid = root.querySelector(".countdown__grid");
+    this.done = root.querySelector(".countdown__done");
+    this.cells = {};
     root.querySelectorAll("[data-unit]").forEach((el) => {
-      cells[el.dataset.unit] = el;
+      this.cells[el.dataset.unit] = el;
     });
 
+    setInterval(() => this.tick(), 1000);
+  },
+
+  /* 換地點時起飛時間不同，更新倒數目標 */
+  render(trip) {
+    this.target = new Date(trip.departure).getTime();
+    this.tick();
+  },
+
+  tick() {
+    if (!this.grid || !this.target) return;
+
+    const diff = this.target - Date.now();
+    const departed = diff <= 0;
+    this.grid.hidden = departed;
+    this.done.hidden = !departed;
+    if (departed) return;
+
     const pad = (n) => String(n).padStart(2, "0");
-
-    /* 回傳 false 代表已出發，不用再更新 */
-    const tick = () => {
-      const diff = target - Date.now();
-      if (diff <= 0) {
-        root.innerHTML = '<p class="countdown__done">出發囉！祝旅途愉快 ✈</p>';
-        return false;
-      }
-      const total = Math.floor(diff / 1000);
-      cells.days.textContent = Math.floor(total / 86400);
-      cells.hours.textContent = pad(Math.floor((total % 86400) / 3600));
-      cells.minutes.textContent = pad(Math.floor((total % 3600) / 60));
-      cells.seconds.textContent = pad(total % 60);
-      return true;
-    };
-
-    if (tick()) {
-      const timer = setInterval(() => {
-        if (!tick()) clearInterval(timer);
-      }, 1000);
-    }
+    const total = Math.floor(diff / 1000);
+    this.cells.days.textContent = Math.floor(total / 86400);
+    this.cells.hours.textContent = pad(Math.floor((total % 86400) / 3600));
+    this.cells.minutes.textContent = pad(Math.floor((total % 3600) / 60));
+    this.cells.seconds.textContent = pad(total % 60);
   },
 };

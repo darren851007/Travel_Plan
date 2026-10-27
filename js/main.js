@@ -1,18 +1,36 @@
 /* ============================================================
-   進入點：頁面載入後依序啟動各模組
+   進入點：啟動各模組，依網址顯示「選擇行程」或某趟行程
    ============================================================ */
 document.addEventListener("DOMContentLoaded", () => {
-  /* 標題等文字從資料檔帶入 */
-  document.title = Trip.data.title;
-  document.querySelectorAll("[data-text]").forEach((el) => {
-    el.textContent = Trip.data[el.dataset.text] ?? el.textContent;
-  });
+  /* 行程畫面的模組：init() 綁事件一次，render(trip) 每次切換行程時重畫 */
+  const views = [
+    Trip.hero,
+    Trip.countdown,
+    Trip.flights,
+    Trip.itinerary,
+    Trip.checklist,
+    Trip.lodging,
+  ];
+
+  /* 頁尾顯示資料來源：Notion 同步或內建範例 */
+  const source = document.getElementById("data-source");
+  if (source) {
+    const synced = Trip.dataSource?.syncedAt;
+    source.textContent = synced
+      ? `資料來源：Notion · 同步於 ${new Date(synced).toLocaleString("zh-TW", { dateStyle: "short", timeStyle: "short" })}`
+      : "資料來源：內建範例資料";
+  }
 
   Trip.art.mount();
   Trip.nav.init();
-  Trip.countdown.init();
-  Trip.flights.init();
-  Trip.itinerary.init();
-  Trip.checklist.init();
-  Trip.lodging.init();
+  views.forEach((view) => view.init());
+  Trip.state.subscribe((trip, options) => {
+    views.forEach((view) => view.render(trip, options));
+  });
+
+  Trip.picker.init();
+  Trip.picker.render();
+  Trip.router.init();
+
+  Trip.notionPanel.init();
 });

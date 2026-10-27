@@ -1,0 +1,14 @@
+{
+  "name": "travel-plan",
+  "private": true,
+  "description": "韓系簡約風格的旅遊行程網頁",
+  "scripts": {
+    "start": "node scripts/server.mjs",
+    "notion:setup": "node scripts/notion.mjs setup",
+    "notion:sync": "node scripts/notion.mjs sync",
+    "notion:cities": "node scripts/notion.mjs cities"
+  },
+  "engines": {
+    "node": ">=20.12"
+  }
+}

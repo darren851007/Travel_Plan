@@ -1,0 +1,38 @@
+/* ============================================================
+   共用設定 — 所有行程共用的交通標籤、準備清單、預設出發日
+   各國家的行程在 js/data/destinations/*.js（一個國家一趟旅程）
+   ============================================================ */
+window.Trip = window.Trip || {};
+Trip.destinations = Trip.destinations || [];
+
+Trip.config = {
+  /* 行程沒填出發日時使用（台灣時間） */
+  startDate: "2026-12-18",
+  originTimezone: "+08:00",
+
+  /* 交通方式 → 標籤文字與顏色（tone 對應 css 的 .tone-*） */
+  transports: {
+    flight: { label: "飛機",     tone: "rose" },
+    arex:   { label: "機場快線", tone: "lilac" },
+    subway: { label: "地鐵",     tone: "sky" },
+    train:  { label: "電車",     tone: "green" },
+    bus:    { label: "公車",     tone: "butter" },
+    taxi:   { label: "計程車",   tone: "peach" },
+    walk:   { label: "步行",     tone: "mint" },
+    cable:  { label: "纜車",     tone: "sand" },
+  },
+
+  /* 準備清單：前段 + 各國專屬 + 後段 */
+  checklistBefore: [
+    { id: "passport", text: "護照", hint: "效期 6 個月以上" },
+    { id: "flight",   text: "機票訂位確認", hint: "線上報到、選位" },
+    { id: "hotel",    text: "住宿訂房確認" },
+  ],
+  checklistAfter: [
+    { id: "esim",      text: "網卡或 eSIM" },
+    { id: "power",     text: "行動電源", hint: "只能隨身帶上機，不可託運" },
+    { id: "coat",      text: "羽絨外套、圍巾、手套", hint: "12 月常在零度上下" },
+    { id: "medicine",  text: "常備藥品" },
+    { id: "insurance", text: "旅遊平安險" },
+  ],
+};

@@ -117,3 +117,33 @@
   font-size: 0.85rem;
   text-align: center;
 }
+
+.footer__source {
+  margin-top: 4px;
+  font-size: 0.75rem;
+}
+
+/* ---------- 畫面切換：選擇行程 / 行程 ---------- */
+[data-view="picker"] #trip-view,
+[data-view="picker"] .nav-links,
+[data-view="trip"] #trips {
+  display: none;
+}
+
+.brand__back {
+  display: none;
+  font-size: 1.6rem;
+  line-height: 1;
+  margin-right: -2px;
+}
+
+[data-view="trip"] .brand__back {
+  display: inline;
+}
+
+/* 手機上行程畫面的選單較擠，省略品牌旁的小飛機 */
+@media (max-width: 420px) {
+  [data-view="trip"] .brand__icon {
+    display: none;
+  }
+}

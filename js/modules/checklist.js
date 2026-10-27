@@ -1,19 +1,16 @@
 /* ============================================================
-   準備清單：可打勾，狀態存在這台裝置的瀏覽器（localStorage）
+   準備清單：可打勾，狀態依地點分開存在這台裝置的瀏覽器（localStorage）
    ============================================================ */
 window.Trip = window.Trip || {};
 
 Trip.checklist = {
-  STORAGE_KEY: "trip-checklist",
+  STORAGE_PREFIX: "trip-checklist:",
 
   init() {
     this.list = document.getElementById("checklist");
     this.bar = document.getElementById("checklist-bar");
     this.count = document.getElementById("checklist-count");
     if (!this.list) return;
-
-    this.done = this.load();
-    this.render();
 
     this.list.addEventListener("change", (e) => {
       const input = e.target;
@@ -25,25 +22,14 @@ Trip.checklist = {
     });
   },
 
-  load() {
-    try {
-      return new Set(JSON.parse(localStorage.getItem(this.STORAGE_KEY)) || []);
-    } catch {
-      return new Set();
-    }
-  },
+  render(trip) {
+    if (!this.list) return;
+    this.items = trip.checklist;
+    this.storageKey = this.STORAGE_PREFIX + trip.id;
+    this.done = this.load();
 
-  save() {
-    try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify([...this.done]));
-    } catch {
-      /* 無痕模式等情況存不了，就只在本次瀏覽有效 */
-    }
-  },
-
-  render() {
     const { esc } = Trip.utils;
-    this.list.innerHTML = Trip.data.checklist
+    this.list.innerHTML = this.items
       .map(
         (item) => `
 <li class="check-item">
@@ -60,9 +46,25 @@ Trip.checklist = {
     this.updateProgress();
   },
 
+  load() {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(this.storageKey)) || []);
+    } catch {
+      return new Set();
+    }
+  },
+
+  save() {
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify([...this.done]));
+    } catch {
+      /* 無痕模式等情況存不了，就只在本次瀏覽有效 */
+    }
+  },
+
   updateProgress() {
-    const total = Trip.data.checklist.length;
-    const done = Trip.data.checklist.filter((item) => this.done.has(item.id)).length;
+    const total = this.items.length;
+    const done = this.items.filter((item) => this.done.has(item.id)).length;
     if (this.count) this.count.textContent = `${done} / ${total}`;
     if (this.bar) {
       this.bar.style.width = `${(done / total) * 100}%`;
