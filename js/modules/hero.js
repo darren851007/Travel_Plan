@@ -23,7 +23,7 @@ Trip.hero = {
   },
 
   deleteLabel(dest) {
-    return dest?.local ? "刪除這趟行程" : "移到 Notion 垃圾桶";
+    return dest?.notionPageId ? "移到 Notion 垃圾桶" : "刪除這趟行程";
   },
 
   /* 依行程來源顯示刪除按鈕（Notion 登入狀態是之後才知道的，所以面板也會呼叫） */
@@ -31,7 +31,7 @@ Trip.hero = {
     const dest = Trip.state.destination;
     if (!this.localBar || !dest) return;
     this.localBar.hidden = !Trip.tripDelete.canDelete(dest);
-    this.where.textContent = dest.local ? "存在這台裝置" : "存在你的 Notion";
+    this.where.textContent = dest.local ? "存在這台裝置" : dest.notionPageId ? "存在你的 Notion" : "範例行程";
     this.deleteButton.disabled = false;
     Trip.tripDelete.reset(this.deleteButton, this.deleteLabel(dest));
   },

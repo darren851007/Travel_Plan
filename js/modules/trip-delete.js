@@ -1,8 +1,9 @@
 /* ============================================================
    刪除行程（「我的旅行」卡片與行程頁共用）
    - 存在這台裝置的行程：直接刪除
+   - 內建範例：在這台裝置隱藏，「我的旅行」頁可以還原
    - Notion 同步的行程（需登入）：把國家頁面移到 Notion 垃圾桶，30 天內可在 Notion 還原
-   內建範例不能刪除；按鈕都要按兩次才會刪除
+   按鈕都要按兩次才會刪除
    ============================================================ */
 window.Trip = window.Trip || {};
 
@@ -10,11 +11,14 @@ Trip.tripDelete = {
   CONFIRM_MS: 4000,
 
   canDelete(dest) {
-    return Boolean(dest?.local || (dest?.notionPageId && Trip.notionPanel?.status?.loggedIn));
+    return Boolean(
+      dest?.local || Trip.localTrips.isSample(dest) || (dest?.notionPageId && Trip.notionPanel?.status?.loggedIn)
+    );
   },
 
+  /* Notion 的行程是移到垃圾桶；其他都在這台裝置刪除 */
   label(dest) {
-    return dest?.local ? "刪除" : "移到 Notion 垃圾桶";
+    return dest?.notionPageId ? "移到 Notion 垃圾桶" : "刪除";
   },
 
   /* 第一次按：按鈕變成「確定刪除？」；時間內再按一次才真的刪除。回傳是否該刪了 */
@@ -38,6 +42,15 @@ Trip.tripDelete = {
 
   /* 刪除並更新畫面；完成後回到「我的旅行」 */
   async remove(dest, button) {
+    if (Trip.localTrips.isSample(dest)) {
+      if (!Trip.localTrips.hideSample(dest.id)) {
+        Trip.addItem.toast("刪除失敗：這個瀏覽器不允許儲存資料");
+        return false;
+      }
+      this.done(`已刪除「${dest.title}」，可以在「我的旅行」頁還原範例`);
+      return true;
+    }
+
     if (dest.local) {
       if (!Trip.localTrips.remove(dest.id)) {
         Trip.addItem.toast("刪除失敗：這個瀏覽器不允許儲存資料");

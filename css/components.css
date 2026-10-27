@@ -1118,3 +1118,9 @@ a.btn.is-disabled {
   position: relative;
   z-index: 1;
 }
+
+.trips__restore {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+}
