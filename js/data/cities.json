@@ -7,7 +7,10 @@
     "新加坡": {"id":"singapore","flag":"🇸🇬","color":"pink"},
     "香港": {"id":"hongkong","flag":"🇭🇰","color":"purple"},
     "澳門": {"id":"macau","flag":"🇲🇴","color":"orange"},
-    "印尼": {"id":"indonesia","flag":"🇮🇩","color":"brown"}
+    "印尼": {"id":"indonesia","flag":"🇮🇩","color":"brown"},
+    "捷克": {"id":"czech","flag":"🇨🇿","color":"gray"},
+    "奧地利": {"id":"austria","flag":"🇦🇹","color":"default"},
+    "匈牙利": {"id":"hungary","flag":"🇭🇺","color":"green"}
   },
   "cities": [
     {"name":"首爾","id":"seoul","country":"韓國","airport":"ICN","art":"heroSeoul"},
@@ -29,6 +32,9 @@
     {"name":"新加坡","id":"singapore","country":"新加坡","airport":"SIN"},
     {"name":"香港","id":"hongkong","country":"香港","airport":"HKG"},
     {"name":"澳門","id":"macau","country":"澳門","airport":"MFM"},
-    {"name":"峇里島","id":"bali","country":"印尼","airport":"DPS"}
+    {"name":"峇里島","id":"bali","country":"印尼","airport":"DPS"},
+    {"name":"布拉格","id":"prague","country":"捷克","airport":"PRG"},
+    {"name":"維也納","id":"vienna","country":"奧地利","airport":"VIE"},
+    {"name":"布達佩斯","id":"budapest","country":"匈牙利","airport":"BUD"}
   ]
 }

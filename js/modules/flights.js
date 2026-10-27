@@ -22,7 +22,7 @@ Trip.flights = {
   <header class="flight__head">
     <span class="pill ${i === 0 ? "tone-peach" : "tone-sky"}">${esc(f.type)}</span>
     <h3 class="flight__no">${esc(f.airline)} ${esc(f.number)}</h3>
-    <span class="flight__icon">${Trip.art.get("planeIcon")}</span>
+    ${this.logo(f)}
   </header>
 
   <div class="flight__route">
@@ -52,6 +52,25 @@ Trip.flights = {
       })
       .join("");
 
+    /* logo 載入失敗（離線、服務異常）時換回飛機圖示 */
+    list.querySelectorAll(".flight__logo img").forEach((img) => {
+      img.addEventListener("error", () => {
+        img.parentElement.outerHTML = `<span class="flight__icon">${Trip.art.get("planeIcon")}</span>`;
+      }, { once: true });
+    });
+
     if (animate) Trip.utils.replay(list);
+  },
+
+  /* 航空公司 logo：航班號碼開頭的代碼在 js/data/airlines.js 清單裡才顯示，否則用飛機圖示 */
+  logo(f) {
+    const { esc } = Trip.utils;
+    const code = Trip.airlineCode(f.number);
+    if (!code) return `<span class="flight__icon">${Trip.art.get("planeIcon")}</span>`;
+    const name = f.airline || Trip.airlines[code];
+    return `
+<span class="flight__logo">
+  <img src="https://pics.avs.io/240/80/${esc(code)}.png" alt="${esc(name)}" width="96" height="32" loading="lazy" referrerpolicy="no-referrer">
+</span>`;
   },
 };
