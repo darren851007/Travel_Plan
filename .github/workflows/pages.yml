@@ -1,0 +1,38 @@
+# 推上 main 時自動部署到 GitHub Pages（只發佈 scripts/build.mjs 打包的網頁檔案）
+# GitHub Pages 只能放靜態網頁：Notion 登入、新增行程等需要 Cloudflare Functions 的功能不會出現
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 打包網頁
+        run: node scripts/build.mjs
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/site
+      - name: 部署
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -13,7 +13,9 @@
   position: fixed;
   inset: 0 0 auto;
   z-index: 10;
-  height: var(--nav-h);
+  /* 手機 App 內避開狀態列（一般瀏覽器為 0） */
+  height: calc(var(--nav-h) + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
   background: var(--paper);
   border-bottom: var(--line) solid var(--ink);
 }

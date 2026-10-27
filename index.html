@@ -22,7 +22,7 @@
   <script defer src="js/data/config.js"></script>
   <script defer src="js/data/destinations/korea.js"></script>
   <script defer src="js/data/destinations/japan.js"></script>
-  <script defer src="js/data/notion-data.js"></script>
+  <script defer src="js/core/notion-cache.js"></script>
   <script defer src="js/core/utils.js"></script>
   <script defer src="js/core/builder.js"></script>
   <script defer src="js/core/state.js"></script>
@@ -37,6 +37,8 @@
   <script defer src="js/modules/checklist.js"></script>
   <script defer src="js/modules/lodging.js"></script>
   <script defer src="js/modules/notion-panel.js"></script>
+  <script defer src="js/modules/add-item.js"></script>
+  <script defer src="js/modules/new-trip.js"></script>
   <script defer src="js/main.js"></script>
 </head>
 <body data-view="picker">
@@ -68,12 +70,12 @@
         <div class="trip-list" id="trip-list"></div>
       </section>
 
-      <!-- Notion 連結（只在 npm start 本機伺服器時顯示） -->
+      <!-- Notion 連結（部署在 Cloudflare 時顯示） -->
       <section id="notion" class="section container" hidden>
         <div class="section-head">
           <div>
             <h2 class="section-title">Notion 連結</h2>
-            <p class="section-sub">一個國家一個 Notion 頁面，按一下就同步到網頁</p>
+            <p class="section-sub">用自己的 Notion 帳號登入，看你自己的旅行</p>
           </div>
         </div>
         <div class="card notion" id="notion-panel"></div>
@@ -122,6 +124,12 @@
         </div>
       </div>
 
+      <!-- 新增景點（登入 Notion 並同步後才會出現按鈕） -->
+      <div class="add-item-bar" id="add-item-bar" hidden>
+        <button class="btn" type="button" id="add-item-open" hidden>＋ 新增景點</button>
+        <p class="field__hint" id="add-item-hint"></p>
+      </div>
+
       <div class="legend" id="transport-legend" aria-label="交通方式顏色說明"></div>
       <div class="day-tabs" id="day-tabs" role="tablist" aria-label="選擇日期"></div>
       <div class="day-panel" id="day-panel" role="tabpanel"></div>
@@ -161,10 +169,106 @@
     </div>
   </main>
 
+  <!-- 新增景點對話框（加一筆到某一天的行程） -->
+  <dialog class="dialog" id="add-item-dialog" aria-labelledby="add-item-title">
+    <form class="dialog__form" id="add-item-form" novalidate>
+      <h3 class="dialog__title" id="add-item-title">新增景點</h3>
+
+      <label class="field">
+        <span class="field__label">第幾天</span>
+        <select id="add-item-day" name="day"></select>
+      </label>
+
+      <div class="dialog__row">
+        <label class="field">
+          <span class="field__label">時間</span>
+          <input id="add-item-time" name="time" type="time" step="300">
+        </label>
+        <label class="field">
+          <span class="field__label">城市</span>
+          <input id="add-item-city" name="city" list="add-item-cities" autocomplete="off" maxlength="100">
+          <datalist id="add-item-cities"></datalist>
+        </label>
+      </div>
+
+      <label class="field">
+        <span class="field__label">名稱</span>
+        <input id="add-item-name" name="title" required maxlength="200" placeholder="例如：昌德宮" autocomplete="off">
+      </label>
+
+      <label class="field" id="add-item-theme-field" hidden>
+        <span class="field__label">當日主題</span>
+        <input id="add-item-theme" name="theme" maxlength="200" placeholder="例如：古宮與韓屋" autocomplete="off">
+      </label>
+
+      <fieldset class="field dialog__fieldset">
+        <legend class="field__label">交通</legend>
+        <div class="chip-list" id="add-item-transport"></div>
+      </fieldset>
+
+      <label class="check-row">
+        <input type="checkbox" id="add-item-must" name="must">
+        <span>★ 必去</span>
+      </label>
+
+      <label class="field">
+        <span class="field__label">說明</span>
+        <textarea id="add-item-note" name="note" rows="2" maxlength="2000" placeholder="例如：記得先預約"></textarea>
+      </label>
+
+      <p class="notion__msg" id="add-item-msg" role="status" aria-live="polite"></p>
+
+      <div class="btn-row dialog__actions">
+        <button class="btn btn--ghost" type="button" id="add-item-cancel">取消</button>
+        <button class="btn" type="submit" id="add-item-submit">新增到 Notion</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 新增行程（整趟旅程）對話框 -->
+  <dialog class="dialog" id="new-trip-dialog" aria-labelledby="new-trip-title">
+    <form class="dialog__form" id="new-trip-form" novalidate>
+      <h3 class="dialog__title" id="new-trip-title">新增行程</h3>
+
+      <label class="field">
+        <span class="field__label">國家</span>
+        <select id="new-trip-country" name="country"></select>
+      </label>
+
+      <div class="field">
+        <span class="field__label" id="new-trip-stops-label">城市與天數</span>
+        <ul class="stops" id="new-trip-stops" aria-labelledby="new-trip-stops-label"></ul>
+        <select id="new-trip-add-city" aria-label="加入城市"></select>
+      </div>
+
+      <div class="dialog__row">
+        <label class="field">
+          <span class="field__label">出發日</span>
+          <input id="new-trip-date" name="date" type="date" required>
+        </label>
+        <label class="field">
+          <span class="field__label">標題</span>
+          <input id="new-trip-name" name="title" maxlength="100" autocomplete="off">
+        </label>
+      </div>
+
+      <p class="new-trip__summary" id="new-trip-summary"></p>
+      <p class="notion__msg" id="new-trip-msg" role="status" aria-live="polite"></p>
+
+      <div class="btn-row dialog__actions">
+        <button class="btn btn--ghost" type="button" id="new-trip-cancel">取消</button>
+        <button class="btn" type="submit" id="new-trip-submit">建立到 Notion</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
   <footer class="footer">
     <div class="container">
       <p>祝旅途愉快 · Have a nice trip</p>
       <p class="footer__source" id="data-source"></p>
+      <p class="footer__source"><a href="privacy.html">隱私權與使用條款</a></p>
     </div>
   </footer>
 </body>

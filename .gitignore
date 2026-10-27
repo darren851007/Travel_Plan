@@ -4,5 +4,7 @@ node_modules/
 __pycache__/
 .venv/
 .playwright-mcp/
-!.env.example
 dist/
+.dev.vars
+.wrangler/
+!.dev.vars.example

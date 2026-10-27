@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
     Trip.itinerary,
     Trip.checklist,
     Trip.lodging,
+    Trip.addItem,
   ];
 
   /* 頁尾顯示資料來源：Notion 同步或內建範例 */
@@ -17,7 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (source) {
     const synced = Trip.dataSource?.syncedAt;
     source.textContent = synced
-      ? `資料來源：Notion · 同步於 ${new Date(synced).toLocaleString("zh-TW", { dateStyle: "short", timeStyle: "short" })}`
+      ? `資料來源：你的 Notion · 同步於 ${new Date(synced).toLocaleString("zh-TW", { dateStyle: "short", timeStyle: "short" })}`
       : "資料來源：內建範例資料";
   }
 
@@ -28,6 +29,7 @@ document.addEventListener("DOMContentLoaded", () => {
     views.forEach((view) => view.render(trip, options));
   });
 
+  Trip.newTrip.init();
   Trip.picker.init();
   Trip.picker.render();
   Trip.router.init();

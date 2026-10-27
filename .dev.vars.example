@@ -1,0 +1,6 @@
+# 本機測試（npm run dev）用，複製成 .dev.vars 後填入；正式網站的值用 wrangler pages secret put 設定
+# Notion 公開整合的 OAuth client ID / secret（https://www.notion.so/profile/integrations）
+NOTION_CLIENT_ID=
+NOTION_CLIENT_SECRET=
+# 加密登入 Cookie 用的隨機字串（至少 32 字元），例如：openssl rand -base64 48
+SESSION_SECRET=

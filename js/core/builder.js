@@ -22,7 +22,8 @@ Trip.builder = {
       title: dest.title,
       subtitle: `${days.length} 天 ${nights} 夜 · ${dest.tagline}`,
       dateRange: this.formatRange(start, end),
-      departure: `${start}T${dest.flights.outbound.from.time}:00${config.originTimezone}`,
+      /* 起飛時間還沒填時，倒數算到出發日 00:00 */
+      departure: `${start}T${dest.flights.outbound.from.time || "00:00"}:00${config.originTimezone}`,
       art: dest.art,
       transports: config.transports,
       cities: this.cities(days),

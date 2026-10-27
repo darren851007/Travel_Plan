@@ -1,170 +1,108 @@
 # 我的旅行
 
-韓系簡約風格的旅遊行程網頁。純 HTML / CSS / JavaScript，不需要安裝任何東西。
-打開網頁先看到「**選擇行程**」：每個國家一趟旅程（可以跨多個城市），點卡片進入該趟行程的航班、每日行程、準備清單與住宿。
+韓系簡約風格的旅遊行程網頁，手機（含 iPhone Safari）優先。
+打開網頁先看到「**選擇行程**」：每個國家一趟旅程（可以跨多個城市），點卡片進入航班、每日行程、準備清單與住宿。
 
-- **本機開啟**：直接雙擊 `index.html`
-- **連結 Notion**：執行 `npm start`，打開 http://localhost:3000（需要 Node 20.12 以上）
-- 行程網址是 `#/korea` 這種格式，可以加書籤；左上角或上一頁回到所有行程
+每個人用**自己的 Notion 帳號登入**，看到的是自己 Notion 裡的旅行；不需要 Claude 帳號。
+沒登入時顯示韓國、日本兩個範例。
+
+- **線上範例版**（GitHub Pages）：https://darren851007.github.io/Travel_Plan/
+  只有內建範例；Notion 登入、新增行程、新增景點需要部署到 Cloudflare（見下方「部署」）
+
+## 功能
+
+- **選擇行程**：行程卡片（插圖、國家、城市、日期、天數、出發倒數）；網址 `#/korea` 可加書籤
+- **＋ 新增行程**：選國家 → 城市與每個城市的天數 → 出發日 → 標題，建立到你的 Notion（含每天的預設行程、每城市住宿、去回程航班）
+- **＋ 新增景點**：在某一天加一筆行程（時間、名稱、城市、交通、必去、說明），直接存進 Notion
+- **每日行程**：日期切換（彈跳動畫）、時間軸、彩色交通標籤、★ 必去
+- **準備清單**：可打勾，依行程分開記在瀏覽器
+- **住宿**：每個城市一間，入住／退房日依行程自動計算
+- 插圖會輕輕動，支援「減少動態效果」
+
+## 架構
+
+```
+iPhone / 電腦瀏覽器 ──▶ Cloudflare Pages（網頁）
+                          │ /api/*（Cloudflare Functions，轉接 Notion）
+                          ▼
+                       Notion API（用每個人自己的授權）
+```
+
+- 瀏覽器不能直接呼叫 Notion API，所以由 Cloudflare Functions 轉接
+- 每個人的 Notion 授權**加密後存在自己裝置的 Cookie**（HttpOnly），網站不保存任何人的授權或行程
+- 同步的行程存在每個人自己的瀏覽器（localStorage）
 
 ## 資料夾結構
 
 ```
-index.html              頁面骨架：選擇行程畫面 + 行程畫面
-css/
-  tokens.css            設計變數：顏色、字型、框線、圓角
-  base.css              基礎樣式與 reset
-  layout.css            版面：頂端選單、區塊、格線、頁尾、畫面切換
-  components.css        元件：行程卡片、倒數、航班、時間軸、清單、住宿、Notion 面板
-  motion.css            動畫與「減少動態效果」設定
+index.html              頁面骨架：選擇行程畫面 + 行程畫面 + 對話框
+privacy.html            隱私權政策與使用條款（Notion 公開整合需要）
+css/                    tokens（顏色字型）、base、layout、components、motion
 js/
-  data/config.js        ★ 共用設定：交通標籤、共用準備清單、預設出發日
-  data/destinations/    ★ 內建範例，一個國家一個檔（korea.js、japan.js）
-  data/notion-data.js   Notion 同步產生的資料（有內容時取代內建範例）
-  core/utils.js         共用工具（日期計算、HTML 跳脫、重播動畫）
-  core/builder.js       把一趟行程組成畫面資料：日期、住宿入住／退房日
-  core/state.js         目前選擇的行程，變更時通知模組重畫
-  core/router.js        依網址切換「選擇行程」與行程畫面
-  core/art.js           SVG 插圖（首爾、釜山、東京、通用首頁插圖與區塊小插圖）
-  modules/picker.js     選擇行程畫面（行程卡片）
-  modules/nav.js        選單捲動與高亮
-  modules/hero.js       行程首頁標題、日期與插圖
-  modules/countdown.js  出發倒數
-  modules/flights.js    航班卡片
-  modules/itinerary.js  每日行程（日期切換 + 時間軸）
-  modules/checklist.js  可打勾的待辦清單（依行程分開存在瀏覽器）
-  modules/lodging.js    住宿資訊（每個城市一間）
-  modules/notion-panel.js  Notion 連結面板（只在 npm start 時顯示）
+  data/config.js        共用設定：交通標籤、共用準備清單、預設出發日
+  data/destinations/    內建範例（korea.js、japan.js）
+  core/                 utils、builder（組行程）、state、router、notion-cache（使用者的同步資料）、art（SVG 插圖）
+  modules/              picker、hero、countdown、flights、itinerary、checklist、lodging、
+                        notion-panel（登入與同步）、new-trip（新增行程）、add-item（新增景點）
   main.js               進入點
-scripts/
-  server.mjs            本機伺服器（npm start）：提供網頁與 Notion 連結 API，只接受本機連線
-  notion.mjs            Notion 工具：連結、建立範例國家頁面、同步（伺服器與指令列共用）
-  cities.mjs            城市與國家清單（城市下拉選單、機場代碼、國旗）
+functions/api/          Cloudflare Functions
+  status.js             登入狀態
+  cities.js             城市與國家清單
+  auth/                 login、callback、logout（Notion OAuth）
+  notion/               pages、countries、country、create-country、seed、add-item
+lib/                    Functions 共用：notion（表單設計與讀寫）、session（加密 Cookie）、http、cities
+scripts/build.mjs       打包網頁到 dist/site（只含網頁檔案）
 ```
 
-## 行程資料怎麼算
+## 部署（第一次）
 
-- **天數與日期**：行程依序是 Day 1、Day 2…，從「出發日」往後排；回程航班日期＝最後一天
-- **城市**：每天標一個城市，畫面上會顯示，例如 Day 4 · 釜山
-- **住宿**：每間住宿標城市，入住＝該城市第一天，退房＝離開該城市那天，不用自己填日期
-- **機場**：沒填的話，去程抵達＝第一天城市的機場，回程出發＝最後一天城市的機場
+1. 註冊 [Cloudflare](https://dash.cloudflare.com/sign-up)，在專案資料夾執行 `npx wrangler login`
+2. `npm install`，然後 `npm run deploy`，取得網址（例如 `https://travel-plan.pages.dev`）
+3. 到 [Notion 整合頁面](https://www.notion.so/profile/integrations) 建立「**公開**」整合：
+   - Redirect URI：`https://<你的網址>/api/auth/callback`
+   - 隱私權政策／使用條款：`https://<你的網址>/privacy`、`https://<你的網址>/privacy#terms`
+   - 權限：讀取內容、更新內容、插入內容
+4. 設定 Cloudflare 密鑰（指令會請你貼上數值）：
+   ```
+   npx wrangler pages secret put NOTION_CLIENT_ID --project-name travel-plan
+   npx wrangler pages secret put NOTION_CLIENT_SECRET --project-name travel-plan
+   npx wrangler pages secret put SESSION_SECRET --project-name travel-plan   # 隨機 48 字元以上，例如 openssl rand -base64 48
+   ```
+5. 再執行一次 `npm run deploy`
 
-## 用 Notion 編輯行程
+之後修改程式只要 `npm run deploy`。
 
-網頁是純靜態的，瀏覽器不能直接呼叫 Notion API（金鑰也不該放在網頁裡），所以由 `npm start` 啟動的**本機伺服器**負責連 Notion。
-金鑰只存在自己電腦的 `.env`，不會傳回網頁，也不會進 git。
+本機測試：複製 `.dev.vars.example` 為 `.dev.vars` 填入數值，執行 `npm run dev`（http://localhost:8788）。
 
-### Notion 結構：一個國家一個頁面
+## 使用者怎麼用
+
+1. 打開網址 → 最下面「Notion 連結」→ **用 Notion 登入**
+2. Notion 授權頁選一個頁面分享（例如「Travel」），國家行程會放在它底下
+3. 第一次可以按 **建立範例國家頁面**，或在選擇行程畫面按 **＋ 新增行程**
+4. 在 Notion 修改後，回網頁按 **從 Notion 同步**；也可以在網頁直接 **＋ 新增景點**
+5. iPhone：Safari 分享 → 加入主畫面，就能像 App 一樣開啟
+
+## Notion 結構：一個國家一個頁面
 
 ```
-📄 Travel（連結的頁面）
+📄 Travel（登入時分享的頁面）
   ├ 📄 🇰🇷 韓國     ← 一趟旅程，可以有多個城市
   │    ⚙️ 旅程設定  ✈️ 航班  🗓️ 行程  🏨 住宿  ✅ 準備清單
   └ 📄 🇯🇵 日本
-       ⚙️ 旅程設定  ✈️ 航班  🗓️ 行程  🏨 住宿  ✅ 準備清單
 ```
 
-- 連結頁面底下的**每個子頁面＝一個國家**，頁面標題就是國家名稱
-- **新增國家**：在 Notion 複製一個國家頁面（表單會一起複製）→ 改成國家名稱 → 修改內容 → 網頁按「從 Notion 同步」
-- 表單要直接放在國家頁面裡（不能放在欄位或折疊區塊裡），標題前面可以加表情符號
+- 每個子頁面＝一個國家，頁面標題就是國家名稱
+- 新增國家：網頁按「＋ 新增行程」，或在 Notion 複製一個國家頁面改名後同步
+- 表單要直接放在國家頁面裡，標題前面可以加表情符號
 
-### 第一次設定
-
-1. 到 [Notion 整合頁面](https://www.notion.so/profile/integrations) 建立「內部整合」，複製金鑰
-2. 在 Notion 新增一個頁面（例如「Travel」），右上角 `⋯` → **連線** → 加入剛建立的整合
-3. 執行 `npm start`，打開 http://localhost:3000，捲到最下面的「**Notion 連結**」
-4. 貼上金鑰與頁面網址 → **連結 Notion**
-5. 頁面底下還沒有國家時，按 **建立範例國家頁面**：建立韓國、日本兩個範例並同步（約 40 秒）
-
-之後在 Notion 修改完，回網頁按 **從 Notion 同步** 即可。
-
-| 按鈕 | 作用 |
+| 表單 | 重點欄位 |
 |---|---|
-| 從 Notion 同步 | 掃描所有國家頁面，更新 `js/data/notion-data.js` 並重新載入網頁 |
-| 改用內建範例 | 清空同步資料，改回 `js/data/destinations/` 的範例 |
-| 中斷連結 | 從 `.env` 移除金鑰（Notion 裡的頁面不會被刪除） |
+| ⚙️ 旅程設定（只看第一列，可省略） | 名稱（標題）、副標、出發日、插圖、代號、排序 |
+| ✈️ 航班（一筆去程、一筆回程） | 航班、類型（去程／回程）、出發／抵達的機場、城市、時間、航廈；機場空白時依城市補上 |
+| 🗓️ 行程（一列＝一個行程點） | 名稱、**第幾天**（最大的數字＝天數）、城市、當日主題、時間（09:30）、說明、交通、必去 |
+| 🏨 住宿（每個城市一間） | 名稱、城市（入住／退房日自動計算）、地址、房型、入住／退房時間、訂房編號、電話、地圖搜尋 |
+| ✅ 準備清單 | 項目、說明、排序 |
 
-> 面板只在 `npm start` 時出現；雙擊 `index.html` 或放到 GitHub Pages 時不會顯示，網頁照常使用最後一次同步的資料。
+城市清單在 `lib/cities.js`（20 個城市，含機場代碼、國旗）。新增交通方式時，Notion 的選項名稱要和 `js/data/config.js` 的 `transports` 標籤一致。
 
-<details>
-<summary>不開伺服器、用指令列操作</summary>
-
-複製 `.env.example` 為 `.env`，填入 `NOTION_TOKEN` 與 `NOTION_PARENT_PAGE`，然後：
-
-- `npm run notion:setup`：建立範例國家頁面（已存在的國家會略過）
-- `npm run notion:sync`：同步到網頁
-- `npm run notion:cities`：更新每個國家頁面的城市下拉選單
-
-</details>
-
-### 表單設計（每個國家頁面）
-
-**⚙️ 旅程設定**（只看第一列；可以不建，沒有時用預設值）
-
-| 欄位 | 型別 | 說明 |
-|---|---|---|
-| 名稱 | 標題 | 行程標題，例如「韓國冬日小旅行」（空白時＝國家名稱＋小旅行） |
-| 副標 | 文字 | 例如「首爾古宮、釜山海景」（空白時列出城市） |
-| 出發日 | 日期 | Day 1 的日期 |
-| 插圖 | 單選 | 首爾、釜山、東京、通用（空白時依第一天的城市） |
-| 代號 | 文字 | 網址與打勾紀錄用，例如 `korea`（空白時依國家自動產生，建立後別改） |
-| 排序 | 數字 | 選擇行程畫面的順序 |
-
-**✈️ 航班**（一筆去程、一筆回程）
-
-| 欄位 | 型別 | 說明 |
-|---|---|---|
-| 航班 | 標題 | CI 160 |
-| 類型 | 單選 | 去程 / 回程 |
-| 航空公司 | 文字 | |
-| 出發機場 / 出發城市 / 出發時間 / 出發航廈 | 文字 | TPE / 台北桃園 / 08:20 / 第一航廈 |
-| 抵達機場 / 抵達城市 / 抵達時間 / 抵達航廈 | 文字 | 機場代碼空白時依城市自動補上 |
-| 飛行時間 / 座位 / 行李 | 文字 | 2h 25m / 32A / 託運 23kg |
-
-**🗓️ 行程**（一列＝一個行程點）
-
-| 欄位 | 型別 | 說明 |
-|---|---|---|
-| 名稱 | 標題 | 景福宮 |
-| 第幾天 | 數字 | 1、2、3…，**最大的數字就是這趟旅程的天數** |
-| 城市 | 單選 | 從選單選城市（同一天填一筆即可） |
-| 當日主題 | 文字 | 同一天任一筆填寫即可，例如「古宮與韓屋」 |
-| 時間 | 文字 | `09:30`（兩位數，同一天依時間排序） |
-| 說明 | 文字 | |
-| 交通 | 多選 | 飛機、機場快線、地鐵、電車、公車、計程車、步行、纜車 |
-| 必去 | 勾選 | 打勾會顯示 ★ 必去 |
-
-**🏨 住宿**（每個城市一間）
-
-| 欄位 | 型別 | 說明 |
-|---|---|---|
-| 名稱 | 標題 | 弘大旅店 |
-| 城市 | 單選 | 入住／退房日依行程裡這個城市的日子自動計算 |
-| 地址 / 房型 / 訂房編號 / 地圖搜尋 | 文字 | 地圖搜尋是 Google Maps 的搜尋字（空白時用名稱） |
-| 入住時間 / 退房時間 | 文字 | 空白時為 15:00 / 11:00 |
-| 電話 | 電話 | |
-
-**✅ 準備清單**
-
-| 欄位 | 型別 | 說明 |
-|---|---|---|
-| 項目 | 標題 | 護照 |
-| 說明 | 文字 | 小字提示，例如「效期 6 個月以上」 |
-| 排序 | 數字 | 清單順序 |
-
-> **城市選單**：內建 20 個城市（韓國、日本、泰國、越南、新加坡、香港、澳門、峇里島），清單在 `scripts/cities.mjs`。
-> 加了城市之後執行 `npm run notion:cities`，會補進每個國家頁面的選單（不會刪除自己加的選項）。
-
-> 新增交通方式時，Notion 的選項名稱要和 `js/data/config.js` 的 `transports` 標籤一致，同步時才認得。
-
-## 常見修改
-
-| 想改什麼 | 改哪裡 |
-|---|---|
-| 行程內容 | Notion 國家頁面（或內建範例 `js/data/destinations/<國家>.js`） |
-| 新增內建範例國家 | 複製一個 destinations 檔改內容，在 `index.html` 加一行 `<script>` |
-| 新增交通方式 | `config.js` 的 `transports`，顏色用 `css/components.css` 的 `.tone-*` |
-| 顏色、框線粗細、字型 | `css/tokens.css` |
-| 插圖 | `js/core/art.js` |
-
-> 航班與住宿目前是範例資料，請換成自己的訂位資訊。
+> 航班與住宿的範例是假資料，請換成自己的訂位資訊。
