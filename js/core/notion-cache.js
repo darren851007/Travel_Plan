@@ -35,10 +35,6 @@ Trip.notionCache = {
   /* 頁面載入時：保留內建範例（建立範例頁面時要用），有快取就換成使用者的行程 */
   apply() {
     Trip.samples = Trip.destinations.slice();
-    this.defaults = {
-      checklistBefore: Trip.config.checklistBefore,
-      checklistAfter: Trip.config.checklistAfter,
-    };
 
     const cache = this.load();
     const valid = (cache?.destinations || []).filter(
@@ -46,20 +42,18 @@ Trip.notionCache = {
     );
     if (!valid.length) return;
 
+    /* 同步的清單已包含共用項目 */
+    valid.forEach((d) => {
+      d.checklistIsFull = true;
+    });
     Trip.destinations = valid;
     Trip.dataSource = { type: "notion", syncedAt: cache.syncedAt, parent: cache.parent };
-    /* 同步的清單已包含共用項目 */
-    Trip.config.checklistBefore = [];
-    Trip.config.checklistAfter = [];
   },
 
   /* 送給轉接程式的網頁設定（交通標籤、預設出發日、共用清單） */
   config() {
-    return {
-      transports: Trip.config.transports,
-      startDate: Trip.config.startDate,
-      ...this.defaults,
-    };
+    const { transports, startDate, checklistBefore, checklistAfter } = Trip.config;
+    return { transports, startDate, checklistBefore, checklistAfter };
   },
 };
 

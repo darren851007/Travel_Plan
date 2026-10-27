@@ -18,6 +18,7 @@ Trip.builder = {
       id: dest.id,
       name: dest.name,
       flag: dest.flag || "",
+      local: Boolean(dest.local),
       brand: `${dest.name}小旅行`,
       title: dest.title,
       subtitle: `${days.length} 天 ${nights} 夜 · ${dest.tagline}`,
@@ -36,7 +37,10 @@ Trip.builder = {
 
       days,
 
-      checklist: [...config.checklistBefore, ...dest.checklist, ...config.checklistAfter],
+      /* Notion 同步與自己建立的行程，清單已包含共用項目 */
+      checklist: dest.checklistIsFull
+        ? dest.checklist
+        : [...config.checklistBefore, ...dest.checklist, ...config.checklistAfter],
 
       lodgings: this.lodgings(dest.lodgings || [], days),
     };

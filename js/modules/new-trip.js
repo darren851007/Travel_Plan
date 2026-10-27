@@ -1,7 +1,8 @@
 /* ============================================================
    新增行程（整趟旅程）：選國家 → 城市與每個城市的天數 → 出發日 → 標題
-   建立到使用者自己的 Notion：國家頁面＋5 張表，並填好每天的預設行程、
-   每個城市的住宿、去回程航班（機場依城市自動帶入），之後再到 Notion 補細節
+   先填好每天的預設行程、每個城市的住宿、去回程航班（機場依城市自動帶入）
+   - 已登入 Notion：建立到使用者自己的 Notion（國家頁面＋5 張表）
+   - 沒有 Notion（例如 GitHub Pages）：存在這台裝置的瀏覽器
    ============================================================ */
 window.Trip = window.Trip || {};
 
@@ -70,11 +71,19 @@ Trip.newTrip = {
     });
   },
 
-  /* 登入 Notion 並選好上層頁面時才顯示「＋ 新增行程」卡片 */
+  /* 已登入 Notion 並選好上層頁面時存到 Notion，否則存在這台裝置 */
+  usesNotion() {
+    const panel = Trip.notionPanel;
+    return Boolean(panel?.status?.loggedIn && panel.parent && panel.scan);
+  },
+
   refresh() {
     const card = document.getElementById("new-trip-open");
-    const panel = Trip.notionPanel;
-    if (card) card.hidden = !(panel?.status?.loggedIn && panel.parent && panel.scan);
+    if (!card) return;
+    card.hidden = location.protocol === "file:";
+    card.querySelector(".trip-card__meta").textContent = this.usesNotion()
+      ? "選國家、城市與天數，建立到你的 Notion"
+      : "選國家、城市與天數，存在這台裝置";
   },
 
   /* ---------- 對話框 ---------- */
@@ -86,14 +95,18 @@ Trip.newTrip = {
     this.dialog.showModal();
 
     try {
-      this.data ||= await Trip.notionPanel.request("GET", "cities");
+      this.data ||= await fetch("js/data/cities.json").then((res) => {
+        if (!res.ok) throw new Error(`連線錯誤（${res.status}）`);
+        return res.json();
+      });
     } catch (err) {
       this.message(`讀不到城市清單：${err.message}`, "error");
       return;
     }
 
     const { esc } = Trip.utils;
-    const existing = new Set(Trip.notionPanel.scan.countries.map((c) => c.title));
+    /* Notion 一個國家一個頁面；存在這台裝置則不限制 */
+    const existing = new Set(this.usesNotion() ? Trip.notionPanel.scan.countries.map((c) => c.title) : []);
     const countries = [...new Set(this.data.cities.map((c) => c.country))];
     f.country.innerHTML = countries
       .map((name) => {
@@ -185,7 +198,9 @@ Trip.newTrip = {
     if (!this.stops.length) return "請至少選一個城市";
     if (total > this.MAX_DAYS) return `整趟旅程最多 ${this.MAX_DAYS} 天`;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(this.fields.date.value)) return "請選擇出發日";
-    if (Trip.notionPanel.scan.countries.some((c) => c.title === this.country)) return `「${this.country}」已經有頁面了`;
+    if (this.usesNotion() && Trip.notionPanel.scan.countries.some((c) => c.title === this.country)) {
+      return `「${this.country}」已經有頁面了`;
+    }
     return "";
   },
 
@@ -197,6 +212,11 @@ Trip.newTrip = {
     }
 
     const dest = this.buildDest();
+    if (!this.usesNotion()) {
+      this.saveLocal(dest);
+      return;
+    }
+
     const panel = Trip.notionPanel;
     const report = (...args) => panel.renderMessage(this.fields.msg, ...args);
     this.setSaving(true);
@@ -212,7 +232,24 @@ Trip.newTrip = {
     }
   },
 
-  /* 把表單內容組成和內建範例相同格式的行程，交給 createTrip 寫進 Notion */
+  /* 存在這台裝置：加入清單後直接打開這趟行程 */
+  saveLocal(dest) {
+    const trip = Trip.localTrips.add({
+      ...dest,
+      id: Trip.localTrips.newId(),
+      checklist: [...Trip.config.checklistBefore, ...Trip.config.checklistAfter],
+    });
+    if (!trip) {
+      this.message("這個瀏覽器不允許儲存資料（例如無痕模式），無法建立行程", "error");
+      return;
+    }
+    this.dialog.close();
+    Trip.picker.render();
+    location.hash = `#/${encodeURIComponent(trip.id)}`;
+    Trip.addItem.toast(`已建立「${trip.title}」`);
+  },
+
+  /* 把表單內容組成和內建範例相同格式的行程（存到 Notion 或這台裝置） */
   buildDest() {
     const country = this.country;
     const meta = this.data.countries[country] || {};
@@ -271,7 +308,7 @@ Trip.newTrip = {
     const f = this.fields;
     f.submit.disabled = saving;
     f.cancel.disabled = saving;
-    f.submit.textContent = saving ? "建立中…" : "建立到 Notion";
+    f.submit.textContent = saving ? "建立中…" : this.usesNotion() ? "建立到 Notion" : "建立行程";
   },
 
   message(text, type = "pending") {

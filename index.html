@@ -23,6 +23,7 @@
   <script defer src="js/data/destinations/korea.js"></script>
   <script defer src="js/data/destinations/japan.js"></script>
   <script defer src="js/core/notion-cache.js"></script>
+  <script defer src="js/core/local-trips.js"></script>
   <script defer src="js/core/utils.js"></script>
   <script defer src="js/core/builder.js"></script>
   <script defer src="js/core/state.js"></script>
@@ -39,6 +40,7 @@
   <script defer src="js/modules/notion-panel.js"></script>
   <script defer src="js/modules/add-item.js"></script>
   <script defer src="js/modules/new-trip.js"></script>
+  <script defer src="js/modules/trip-delete.js"></script>
   <script defer src="js/main.js"></script>
 </head>
 <body data-view="picker">
@@ -100,6 +102,12 @@
           <div class="countdown__cell"><span class="countdown__num" data-unit="seconds">–</span><span class="countdown__unit">秒</span></div>
         </div>
         <p class="countdown__done" hidden>出發囉！祝旅途愉快 ✈</p>
+      </div>
+
+      <!-- 刪除行程：自己在這台裝置建立的、或登入後從 Notion 同步的 -->
+      <div class="trip-local" id="trip-local" hidden>
+        <span class="pill tone-butter" id="trip-where"></span>
+        <button class="btn btn--ghost btn--small" type="button" id="trip-delete">刪除這趟行程</button>
       </div>
     </section>
 

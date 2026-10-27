@@ -1,6 +1,8 @@
 /* ============================================================
-   新增景點對話框：在某一天加一筆行程，直接存進使用者自己的 Notion「行程」表
-   只有登入 Notion、而且正在看自己同步的行程時才能新增
+   新增景點對話框：在某一天加一筆行程
+   - 自己在這台裝置建立的行程：存在這台裝置
+   - Notion 同步的行程（需登入）：直接存進使用者自己的 Notion「行程」表
+   內建範例不能修改
    ============================================================ */
 window.Trip = window.Trip || {};
 
@@ -54,20 +56,21 @@ Trip.addItem = {
   /* 依登入狀態與資料來源，顯示「新增景點」按鈕或提示 */
   refresh() {
     if (!this.bar) return;
-    const status = Trip.notionPanel?.status;
-    if (!status?.configured) {
-      this.bar.hidden = true;
-      return;
-    }
     const dest = Trip.state.destination;
-    const canAdd = Boolean(status.loggedIn && dest?.notionPageId);
+    const status = Trip.notionPanel?.status;
+    const canAdd = Boolean(dest?.local || (status?.loggedIn && dest?.notionPageId));
+
+    /* 範例行程：有 Notion 時提示登入；沒有 Notion（GitHub Pages）時提示自己新增一趟 */
+    const hint = canAdd
+      ? ""
+      : status?.configured
+        ? status.loggedIn
+          ? "到「選擇行程」頁按「從 Notion 同步」後，就能在這裡新增景點"
+          : "用 Notion 登入並同步你的行程後，就能在這裡新增景點"
+        : "這是範例行程；到「選擇行程」頁按「＋ 新增行程」建立自己的行程，就能新增景點";
     this.bar.hidden = false;
     this.openButton.hidden = !canAdd;
-    this.hint.textContent = canAdd
-      ? ""
-      : status.loggedIn
-        ? "到「選擇行程」頁按「從 Notion 同步」後，就能在這裡新增景點"
-        : "用 Notion 登入並同步你的行程後，就能在這裡新增景點";
+    this.hint.textContent = hint;
   },
 
   /* ---------- 對話框 ---------- */
@@ -147,6 +150,11 @@ Trip.addItem = {
     }
 
     const dest = Trip.state.destination;
+    if (dest.local) {
+      this.saveLocal(dest, item);
+      return;
+    }
+
     this.setSaving(true);
     this.message("儲存到 Notion…", "pending");
     try {
@@ -155,35 +163,58 @@ Trip.addItem = {
         item,
         config: Trip.notionCache.config(),
       });
-      const dayIndex = this.applyToTrip(dest.id, result.item);
-      this.dialog.close();
-      Trip.state.select(dest.id, false);
-      Trip.itinerary.select(dayIndex, true);
-      document.getElementById("itinerary")?.scrollIntoView({ behavior: Trip.utils.prefersReducedMotion() ? "auto" : "smooth" });
-      this.toast(`已新增「${result.item.title}」`);
+      this.showAdded(dest.id, this.applyToTrip(dest.id, result.item), result.item);
     } catch (err) {
       this.setSaving(false);
       this.message(err.status === 401 ? "Notion 登入已過期，請到「選擇行程」頁重新登入" : err.message, "error");
     }
   },
 
-  /* 新增成功後，同步更新畫面上的資料與瀏覽器快取（不用重新同步整個 Notion） */
-  applyToTrip(destId, item) {
-    const insert = (dest) => {
-      let index = dest.days.findIndex((d, i) => (d.number || i + 1) === item.day);
-      if (index < 0) {
-        dest.days.push({ number: item.day, city: item.city, theme: item.theme, items: [] });
-        dest.days.sort((a, b) => (a.number || 0) - (b.number || 0));
-        index = dest.days.findIndex((d) => d.number === item.day);
-      }
-      const day = dest.days[index];
-      if (!day.city && item.city) day.city = item.city;
-      if (!day.theme && item.theme) day.theme = item.theme;
-      day.items.push({ time: item.time, title: item.title, note: item.note, transport: item.transport, must: item.must });
-      day.items.sort((a, b) => (a.time || "").localeCompare(b.time || ""));
-      return index;
-    };
+  /* 存在這台裝置的行程：直接更新，不經過 Notion */
+  saveLocal(dest, item) {
+    if (item.time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(item.time)) {
+      this.message("時間格式請用 09:30", "error");
+      return;
+    }
+    let dayIndex = 0;
+    const saved = Trip.localTrips.update(dest.id, (d) => {
+      dayIndex = this.insertItem(d, item);
+    });
+    if (!saved) {
+      this.message("這個瀏覽器不允許儲存資料（例如無痕模式），無法新增", "error");
+      return;
+    }
+    this.showAdded(dest.id, dayIndex, item);
+  },
 
+  /* 新增完成：關閉對話框、重畫行程並跳到那一天 */
+  showAdded(destId, dayIndex, item) {
+    this.dialog.close();
+    Trip.state.select(destId, false);
+    Trip.itinerary.select(dayIndex, true);
+    document.getElementById("itinerary")?.scrollIntoView({ behavior: Trip.utils.prefersReducedMotion() ? "auto" : "smooth" });
+    this.toast(`已新增「${item.title}」`);
+  },
+
+  /* 把一筆行程放進某一天（依時間排序）；回傳那一天的位置 */
+  insertItem(dest, item) {
+    let index = dest.days.findIndex((d, i) => (d.number || i + 1) === item.day);
+    /* 對話框只能選現有的日子或「新的一天」，新的一天一定接在最後 */
+    if (index < 0) {
+      dest.days.push({ number: item.day, city: item.city, theme: item.theme, items: [] });
+      index = dest.days.length - 1;
+    }
+    const day = dest.days[index];
+    if (!day.city && item.city) day.city = item.city;
+    if (!day.theme && item.theme) day.theme = item.theme;
+    day.items.push({ time: item.time, title: item.title, note: item.note, transport: item.transport, must: item.must });
+    day.items.sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+    return index;
+  },
+
+  /* Notion 新增成功後，同步更新畫面上的資料與瀏覽器快取（不用重新同步整個 Notion） */
+  applyToTrip(destId, item) {
+    const insert = (dest) => this.insertItem(dest, item);
     const live = Trip.destinations.find((d) => d.id === destId);
     const index = insert(live);
 
@@ -199,7 +230,7 @@ Trip.addItem = {
   setSaving(saving) {
     this.saving = saving;
     this.fields.submit.disabled = saving;
-    this.fields.submit.textContent = saving ? "儲存中…" : "新增到 Notion";
+    this.fields.submit.textContent = saving ? "儲存中…" : Trip.state.destination?.local ? "新增" : "新增到 Notion";
   },
 
   message(text, type = "pending") {

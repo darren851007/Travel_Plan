@@ -24,6 +24,8 @@ Trip.notionPanel = {
     }
     this.status = status;
     Trip.addItem?.refresh();
+    Trip.hero?.updateActions();
+    Trip.picker?.updateActions();
     if (!status.configured) return;
     this.section.hidden = false;
 
@@ -142,12 +144,12 @@ Trip.notionPanel = {
   },
 
   /* report：進度與結果要顯示在哪裡（預設是面板；新增行程對話框會傳自己的） */
-  async sync(report = (...args) => this.message(...args)) {
+  async sync(report = (...args) => this.message(...args), extraWarnings = []) {
     this.setBusy(true);
     try {
       const { countries } = this.scan;
       const destinations = [];
-      const warnings = [];
+      const warnings = [...extraWarnings];
 
       for (const [i, country] of countries.entries()) {
         report(`同步中（${i + 1} / ${countries.length}）：${country.title}`, "pending");
@@ -210,6 +212,36 @@ Trip.notionPanel = {
       }
     }
     this.scan = await this.request("POST", "notion/countries", { parent: this.parent.id });
+  },
+
+  /* 把「存在這台裝置」的行程存到 Notion：成功的會從這台裝置移除，然後同步
+     Notion 一個國家一個頁面，已經有同一個國家時保留在這台裝置 */
+  async uploadLocal() {
+    this.setBusy(true);
+    const warnings = [];
+    try {
+      const existing = new Set(this.scan.countries.map((c) => c.title));
+      const shared = new Set([...Trip.config.checklistBefore, ...Trip.config.checklistAfter].map((c) => c.id));
+      let order = this.scan.countries.length;
+
+      for (const dest of Trip.localTrips.load()) {
+        if (existing.has(dest.name)) {
+          warnings.push(`「${dest.title}」：Notion 已經有「${dest.name}」頁面，先保留在這台裝置`);
+          continue;
+        }
+        /* 代號留空讓 Notion 依國家產生；共用清單項目建立時會自動加上 */
+        await this.createTrip(
+          { ...dest, id: "", checklist: dest.checklist.filter((c) => !shared.has(c.id)) },
+          ++order
+        );
+        Trip.localTrips.remove(dest.id);
+        existing.add(dest.name);
+      }
+      await this.sync(undefined, warnings);
+    } catch (err) {
+      this.setBusy(false);
+      this.message(`${err.message}（已存到 Notion 的行程不會重複上傳，可以再按一次）`, "error");
+    }
   },
 
   /* 建立範例：韓國、日本（已經有的國家會略過） */
@@ -303,6 +335,7 @@ ${this.statusLine()}
     : `<p class="field__hint">「${esc(this.parent.title)}」底下還沒有國家頁面，可以先建立韓國、日本兩個範例（約 1 分鐘）</p>`}
   ${this.scan.legacyTables ? `<p class="field__hint">⚠ 這個頁面上還有 ${esc(this.scan.legacyTables)} 張舊版表單，已不再使用，可以在 Notion 刪除</p>` : ""}
 </div>
+${this.localNotice()}
 <div class="btn-row">
   ${countries.length
     ? `<button class="btn" type="button" data-action="sync">從 Notion 同步</button>`
@@ -313,6 +346,20 @@ ${this.statusLine()}
 </div>
 <p class="notion__msg" role="status" aria-live="polite"></p>`;
     this.showNotice();
+  },
+
+  /* 這台裝置上還沒存到 Notion 的行程 */
+  localNotice() {
+    const { esc } = Trip.utils;
+    const local = Trip.localTrips.load();
+    if (!local.length) return "";
+    return `
+<div class="notion__countries">
+  <p class="field__label">這台裝置的行程</p>
+  <div class="legend">${local.map((d) => `<span class="pill tone-butter">${esc(d.title)}</span>`).join("")}</div>
+  <p class="field__hint">還沒存到 Notion；存過去之後，換手機或電腦登入也看得到</p>
+  <div class="btn-row"><button class="btn" type="button" data-action="uploadLocal">把這台裝置的行程存到 Notion</button></div>
+</div>`;
   },
 
   statusLine() {

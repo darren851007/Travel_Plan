@@ -6,14 +6,18 @@
 每個人用**自己的 Notion 帳號登入**，看到的是自己 Notion 裡的旅行；不需要 Claude 帳號。
 沒登入時顯示韓國、日本兩個範例。
 
-- **線上範例版**（GitHub Pages）：https://darren851007.github.io/Travel_Plan/
-  只有內建範例；Notion 登入、新增行程、新增景點需要部署到 Cloudflare（見下方「部署」）
+- **線上版**（GitHub Pages）：https://darren851007.github.io/Travel_Plan/
+  可以新增、刪除行程與景點，資料**存在這台裝置的瀏覽器**；
+  要用 Notion 登入、把行程存到 Notion，需要部署到 Cloudflare（見下方「部署」）
 
 ## 功能
 
 - **選擇行程**：行程卡片（插圖、國家、城市、日期、天數、出發倒數）；網址 `#/korea` 可加書籤
-- **＋ 新增行程**：選國家 → 城市與每個城市的天數 → 出發日 → 標題，建立到你的 Notion（含每天的預設行程、每城市住宿、去回程航班）
-- **＋ 新增景點**：在某一天加一筆行程（時間、名稱、城市、交通、必去、說明），直接存進 Notion
+- **＋ 新增行程**：選國家 → 城市與每個城市的天數 → 出發日 → 標題（含每天的預設行程、每城市住宿、去回程航班）
+- **＋ 新增景點**：在某一天加一筆行程（時間、名稱、城市、交通、必去、說明）
+- **刪除行程**：「我的旅行」卡片上的「刪除」，或行程頁的「刪除這趟行程」，都要按兩次確認
+- 以上在**登入 Notion 時存到 Notion**（刪除＝移到 Notion 垃圾桶，30 天內可還原），否則**存在這台裝置**；內建範例不能修改
+- 先在這台裝置建立的行程，登入 Notion 後可以按「**把這台裝置的行程存到 Notion**」一次上傳（Notion 已有同國家頁面的會先保留在這台裝置）
 - **每日行程**：日期切換（彈跳動畫）、時間軸、彩色交通標籤、★ 必去
 - **準備清單**：可打勾，依行程分開記在瀏覽器
 - **住宿**：每個城市一間，入住／退房日依行程自動計算
@@ -41,15 +45,17 @@ css/                    tokens（顏色字型）、base、layout、components、
 js/
   data/config.js        共用設定：交通標籤、共用準備清單、預設出發日
   data/destinations/    內建範例（korea.js、japan.js）
-  core/                 utils、builder（組行程）、state、router、notion-cache（使用者的同步資料）、art（SVG 插圖）
+  data/cities.json      城市與國家清單（網頁與 Functions 共用）
+  core/                 utils、builder（組行程）、state、router、art（SVG 插圖）、
+                        notion-cache（Notion 同步的行程）、local-trips（存在這台裝置的行程）
   modules/              picker、hero、countdown、flights、itinerary、checklist、lodging、
-                        notion-panel（登入與同步）、new-trip（新增行程）、add-item（新增景點）
+                        notion-panel（登入與同步）、new-trip（新增行程）、add-item（新增景點）、
+                        trip-delete（刪除行程，卡片與行程頁共用）
   main.js               進入點
 functions/api/          Cloudflare Functions
   status.js             登入狀態
-  cities.js             城市與國家清單
   auth/                 login、callback、logout（Notion OAuth）
-  notion/               pages、countries、country、create-country、seed、add-item
+  notion/               pages、countries、country、create-country、seed、add-item、archive-country
 lib/                    Functions 共用：notion（表單設計與讀寫）、session（加密 Cookie）、http、cities
 scripts/build.mjs       打包網頁到 dist/site（只含網頁檔案）
 ```
@@ -103,6 +109,6 @@ scripts/build.mjs       打包網頁到 dist/site（只含網頁檔案）
 | 🏨 住宿（每個城市一間） | 名稱、城市（入住／退房日自動計算）、地址、房型、入住／退房時間、訂房編號、電話、地圖搜尋 |
 | ✅ 準備清單 | 項目、說明、排序 |
 
-城市清單在 `lib/cities.js`（20 個城市，含機場代碼、國旗）。新增交通方式時，Notion 的選項名稱要和 `js/data/config.js` 的 `transports` 標籤一致。
+城市清單在 `js/data/cities.json`（20 個城市，含機場代碼、國旗）。新增交通方式時，Notion 的選項名稱要和 `js/data/config.js` 的 `transports` 標籤一致。
 
 > 航班與住宿的範例是假資料，請換成自己的訂位資訊。

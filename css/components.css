@@ -691,6 +691,7 @@
 }
 
 .trip-card {
+  position: relative;
   display: block;
   overflow: hidden;
   padding: 0;
@@ -745,8 +746,10 @@
 
 .trip-card__foot {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   margin-top: 8px;
   padding-top: 10px;
   border-top: 2px dashed var(--dash);
@@ -1061,4 +1064,57 @@ a.btn.is-disabled {
 
 #new-trip-add-city {
   margin-top: 8px;
+}
+
+/* 自己建立的行程：存在這台裝置、可刪除 */
+.trip-local {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.btn--small {
+  min-height: 36px;
+  padding: 4px 14px;
+  font-size: 0.9rem;
+}
+
+.btn.is-confirming {
+  background: var(--rose);
+}
+
+/* 整張卡片可點：標題連結延伸蓋住卡片；刪除鈕疊在上面另外可按 */
+.trip-card__link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.trip-card__link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.trip-card__link:focus-visible {
+  outline: none;
+}
+
+.trip-card__link:focus-visible::after {
+  outline: 3px dashed var(--ink);
+  outline-offset: -8px;
+}
+
+.trip-card__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.trip-card__delete {
+  position: relative;
+  z-index: 1;
 }
