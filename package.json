@@ -1,5 +1,6 @@
 {
   "name": "travel-plan",
+  "version": "1.0.0",
   "private": true,
   "description": "韓系簡約風格的旅遊行程網頁",
   "scripts": {
