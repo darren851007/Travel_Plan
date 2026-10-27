@@ -47,6 +47,7 @@ Trip.picker = {
     <p class="trip-card__country">
       <span aria-hidden="true">${esc(t.flag)}</span>${esc(t.name)}
       ${t.local ? '<span class="pill tone-butter">這台裝置</span>' : ""}
+      ${t.room ? '<span class="pill tone-lilac">共編</span>' : ""}
       <span class="pill tone-mint">${esc(t.dateRange)}</span>
     </p>
     <h2 class="trip-card__title"><a class="trip-card__link" href="#/${encodeURIComponent(t.id)}">${esc(t.title)}</a></h2>

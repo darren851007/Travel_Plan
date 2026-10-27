@@ -2,6 +2,7 @@
    編輯行程資料（景點、航班、住宿、清單、旅程設定、每天的主題與城市）
    - 存在這台裝置的行程：直接改這台裝置的資料
    - Notion 同步的行程（需登入）：先寫進 Notion，成功後更新畫面與瀏覽器快取
+   - 共編行程：送到共編房間（js/core/collab.js），其他人的畫面會即時更新
    內建範例不能編輯
    每一列用 uid 辨識：Notion 的是那一列的頁面 ID，這台裝置的是自己產生的 ID
    ============================================================ */
@@ -13,6 +14,7 @@ Trip.editor = {
   },
 
   canEdit(dest) {
+    if (dest?.room) return Trip.collab.isLive(dest.room);
     return Boolean(dest?.local || (dest?.notionPageId && Trip.notionPanel?.status?.loggedIn));
   },
 
@@ -27,6 +29,12 @@ Trip.editor = {
      table：itinerary / flights / lodging / checklist / settings
      op：create / update / delete；mutate(行程物件, id, 整理後的資料) 負責改畫面上的資料 */
   async run(dest, { table, op, uid, values, mutate }) {
+    if (dest.room) {
+      const id = uid || this.uid();
+      await Trip.collab.save(dest, (d) => mutate(d, id, values));
+      return { id, row: values };
+    }
+
     if (dest.local) {
       const id = uid || this.uid();
       const saved = Trip.localTrips.update(dest.id, (d) => mutate(d, id, values));
@@ -50,6 +58,10 @@ Trip.editor = {
       day.theme = theme;
       day.city = city;
     };
+    if (dest.room) {
+      await Trip.collab.save(dest, mutate);
+      return;
+    }
     if (dest.local) {
       if (!Trip.localTrips.update(dest.id, mutate)) throw new Error("這個瀏覽器不允許儲存資料（例如無痕模式）");
       return;

@@ -16,12 +16,14 @@
 - **＋ 新增行程**：選國家 → 城市與每個城市的天數 → 出發日 → 標題（含每天的預設行程、每城市住宿；航班一開始是空的）
 - **網頁上可以編輯所有資訊**（自己建立的行程、或登入 Notion 的行程）：
   - 行程資訊：標題、副標、出發日（「編輯行程資訊」）
-  - 航班：＋ 新增航班（航班號碼自動帶出航空公司、機場依城市預先帶入）、編輯、刪除
+  - 航班：＋ 新增航班（航班號碼自動帶出航空公司、機場依城市預先帶入）、可加多位旅客（姓名＋座位，Notion「航班」表的「旅客」欄位，舊表會自動補上）、編輯、刪除
   - 每一天：主題與城市（「編輯這一天」）
   - 景點：＋ 新增景點、編輯（可換到別天）、刪除
   - 住宿：＋ 新增住宿、編輯、刪除
   - 準備清單：＋ 新增項目、編輯、刪除（打勾狀態各裝置自己記）
 - **刪除行程**：「我的旅行」卡片上的「刪除」，或行程頁的「刪除這趟行程」，都要按兩次確認
+- **分享給好友**：行程頁「分享給好友」產生連結（行程壓縮在連結裡，不經過伺服器）；好友打開是唯讀，可以「加入我的行程」存一份；預設不包含訂房編號、電話、旅客與座位
+- **即時共同編輯**（部署在 Cloudflare 時）：分享對話框「建立共編連結」，拿到連結的人不用登入就能一起改，對方的修改 1 秒內出現、顯示誰在線上；同時修改會自動以最新內容重新套用；「離開共編」只會從自己的清單移除
 - 以上在**登入 Notion 時存到 Notion**（刪除＝移到 Notion 垃圾桶，30 天內可還原），否則**存在這台裝置**
 - 內建範例（韓國、日本）也能刪除：只在這台裝置隱藏，「我的旅行」頁按「還原範例行程」可以找回；範例不能新增景點
 - 先在這台裝置建立的行程，登入 Notion 後可以按「**把這台裝置的行程存到 Notion**」一次上傳（Notion 已有同國家頁面的會先保留在這台裝置）
@@ -34,13 +36,14 @@
 ## 架構
 
 ```
-iPhone / 電腦瀏覽器 ──▶ Cloudflare Pages（網頁）
-                          │ /api/*（Cloudflare Functions，轉接 Notion）
-                          ▼
-                       Notion API（用每個人自己的授權）
+iPhone / 電腦瀏覽器 ──▶ Cloudflare Worker（網頁＋/api）
+                          ├ /api/auth、/api/notion ──▶ Notion API（用每個人自己的授權）
+                          └ /api/rooms ──▶ 共編房間（Durable Object，WebSocket 即時推播）
 ```
 
-- 瀏覽器不能直接呼叫 Notion API，所以由 Cloudflare Functions 轉接
+GitHub Pages 版只有網頁（沒有 /api）：Notion 登入與共同編輯會自動隱藏，其他功能照常。
+
+- 瀏覽器不能直接呼叫 Notion API，所以由 Cloudflare Worker 轉接
 - 每個人的 Notion 授權**加密後存在自己裝置的 Cookie**（HttpOnly），網站不保存任何人的授權或行程
 - 同步的行程存在每個人自己的瀏覽器（localStorage）
 
@@ -56,39 +59,46 @@ js/
   data/cities.json      城市與國家清單（網頁與 Functions 共用）
   core/                 utils、builder（組行程）、state、router、art（SVG 插圖）、
                         notion-cache（Notion 同步的行程）、local-trips（存在這台裝置的行程）、
-                        editor（編輯：存到這台裝置或 Notion）
+                        editor（編輯：存到這台裝置、Notion 或共編房間）、
+                        share（分享連結）、collab（共編行程與即時連線）
   modules/              picker、hero、countdown、flights、itinerary、checklist、lodging、
                         notion-panel（登入與同步）、new-trip（新增行程）、add-item（景點）、add-flight（航班）、
-                        edit-dialog（通用編輯對話框）、trip-delete（刪除行程，卡片與行程頁共用）
+                        edit-dialog（通用編輯對話框）、trip-delete（刪除行程，卡片與行程頁共用）、
+                        share-panel（分享與共編對話框）
   main.js               進入點
-functions/api/          Cloudflare Functions
-  status.js             登入狀態
-  auth/                 login、callback、logout（Notion OAuth）
-  notion/               pages、countries、country、create-country、seed、archive-country、
+server/                 Cloudflare Worker
+  index.js              進入點：/api 路由，其餘交給網頁檔案
+  room.js               共編房間（Durable Object：保存行程、WebSocket 推播、版本衝突）
+  api/status.js         登入狀態、是否開啟共同編輯
+  api/rooms.js          建立／讀取共編行程、WebSocket 連線
+  api/auth/             login、callback、logout（Notion OAuth）
+  api/notion/           pages、countries、country、create-country、seed、archive-country、
                         row（新增／修改／刪除一列）、day（編輯一整天的主題與城市）
-lib/                    Functions 共用：notion（表單設計與讀寫）、session（加密 Cookie）、http、cities
+lib/                    Worker 共用：notion（表單設計與讀寫）、session（加密 Cookie）、http、cities
+wrangler.toml           Worker 設定（網頁檔案、Durable Object）
 scripts/build.mjs       打包網頁到 dist/site（只含網頁檔案）
 ```
 
 ## 部署（第一次）
 
 1. 註冊 [Cloudflare](https://dash.cloudflare.com/sign-up)，在專案資料夾執行 `npx wrangler login`
-2. `npm install`，然後 `npm run deploy`，取得網址（例如 `https://travel-plan.pages.dev`）
+2. `npm install`，然後 `npm run deploy`，取得網址（例如 `https://travel-plan.<你的帳號>.workers.dev`）
+   - 到這一步就能用：分享、**即時共同編輯**、這台裝置的行程；Notion 登入要再做下面 3～5
 3. 到 [Notion 整合頁面](https://www.notion.so/profile/integrations) 建立「**公開**」整合：
    - Redirect URI：`https://<你的網址>/api/auth/callback`
    - 隱私權政策／使用條款：`https://<你的網址>/privacy`、`https://<你的網址>/privacy#terms`
    - 權限：讀取內容、更新內容、插入內容
 4. 設定 Cloudflare 密鑰（指令會請你貼上數值）：
    ```
-   npx wrangler pages secret put NOTION_CLIENT_ID --project-name travel-plan
-   npx wrangler pages secret put NOTION_CLIENT_SECRET --project-name travel-plan
-   npx wrangler pages secret put SESSION_SECRET --project-name travel-plan   # 隨機 48 字元以上，例如 openssl rand -base64 48
+   npx wrangler secret put NOTION_CLIENT_ID
+   npx wrangler secret put NOTION_CLIENT_SECRET
+   npx wrangler secret put SESSION_SECRET   # 隨機 48 字元以上，例如 openssl rand -base64 48
    ```
 5. 再執行一次 `npm run deploy`
 
 之後修改程式只要 `npm run deploy`。
 
-本機測試：複製 `.dev.vars.example` 為 `.dev.vars` 填入數值，執行 `npm run dev`（http://localhost:8788）。
+本機測試：複製 `.dev.vars.example` 為 `.dev.vars` 填入數值，執行 `npm run dev`（http://localhost:8787，含共編房間）。
 
 ## 使用者怎麼用
 

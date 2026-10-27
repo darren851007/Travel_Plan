@@ -6,8 +6,8 @@
   "description": "韓系簡約風格的旅遊行程網頁",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "dev": "npm run build && wrangler pages dev dist/site",
-    "deploy": "npm run build && wrangler pages deploy dist/site --project-name travel-plan"
+    "dev": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy"
   },
   "engines": {
     "node": ">=20.12"

@@ -12,12 +12,13 @@ Trip.tripDelete = {
 
   canDelete(dest) {
     return Boolean(
-      dest?.local || Trip.localTrips.isSample(dest) || (dest?.notionPageId && Trip.notionPanel?.status?.loggedIn)
+      dest?.local || dest?.room || Trip.localTrips.isSample(dest) || (dest?.notionPageId && Trip.notionPanel?.status?.loggedIn)
     );
   },
 
   /* Notion 的行程是移到垃圾桶；其他都在這台裝置刪除 */
   label(dest) {
+    if (dest?.room) return "離開共編";
     return dest?.notionPageId ? "移到 Notion 垃圾桶" : "刪除";
   },
 
@@ -42,6 +43,15 @@ Trip.tripDelete = {
 
   /* 刪除並更新畫面；完成後回到「我的旅行」 */
   async remove(dest, button) {
+    if (dest.room) {
+      if (!Trip.rooms.remove(dest.room)) {
+        Trip.addItem.toast("這個瀏覽器不允許儲存資料，無法離開");
+        return false;
+      }
+      this.done(`已離開「${dest.title}」，其他人不受影響`);
+      return true;
+    }
+
     if (Trip.localTrips.isSample(dest)) {
       if (!Trip.localTrips.hideSample(dest.id)) {
         Trip.addItem.toast("刪除失敗：這個瀏覽器不允許儲存資料");

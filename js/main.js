@@ -12,6 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
     Trip.lodging,
     Trip.addItem,
     Trip.addFlight,
+    Trip.sharePanel,
   ];
 
   /* 頁尾顯示資料來源：Notion 同步或內建範例 */

@@ -13,9 +13,12 @@ Trip.state = {
     this.listeners.push(fn);
   },
 
+  /* 好友分享的行程（不在自己的清單裡，只在打開分享連結時顯示） */
+  shared: null,
+
   /* 選擇行程；找不到這個代號時回傳 false */
   select(id, animate) {
-    const dest = Trip.destinations.find((d) => d.id === id);
+    const dest = Trip.destinations.find((d) => d.id === id) || (id === "shared" ? this.shared : null);
     if (!dest) return false;
 
     this.destination = dest;

@@ -1268,3 +1268,144 @@ a.btn.is-disabled {
   min-width: 0;
 }
 
+/* ---------- 分享給好友 ---------- */
+.trip-share {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.shared-banner {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: var(--line) solid var(--ink);
+  border-radius: var(--radius-sm);
+  background: var(--lilac);
+}
+
+#share-link {
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+/* ---------- 共同編輯 ---------- */
+.share-collab {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 2px dashed var(--dash);
+}
+
+.share-collab .btn-row {
+  margin-top: 0;
+}
+
+.presence {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  font-size: 0.9rem;
+}
+
+.presence__dot {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: var(--green);
+}
+
+.presence.is-offline .presence__dot {
+  background: var(--butter);
+}
+
+/* 行程頁上方「存在這台裝置／共編行程」標籤：和旁邊的小按鈕一樣大 */
+.trip-local .pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 4px 14px;
+  border-width: var(--line);
+  font-size: 0.9rem;
+}
+
+/* ---------- 航班的旅客與座位 ---------- */
+.passengers__list {
+  display: grid;
+  gap: 8px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.passengers__list:empty {
+  display: none;
+}
+
+.passenger-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5.5em auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.passenger-row .passenger-remove {
+  width: 40px;
+  height: 40px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--card);
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.passenger-row .passenger-remove:hover {
+  background: var(--butter);
+}
+
+.passengers__add {
+  justify-self: start;
+  margin-top: 4px;
+}
+
+/* 航班卡片上的旅客清單 */
+.flight__passengers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flight__passengers li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px 3px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 0.88rem;
+}
+
+.flight__passengers .seat {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--sky);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.passenger-seat {
+  text-transform: uppercase;
+}

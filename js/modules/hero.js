@@ -15,6 +15,16 @@ Trip.hero = {
     this.editButton = document.getElementById("trip-edit");
     this.editButton?.addEventListener("click", () => this.editInfo());
     this.resync = document.getElementById("trip-resync");
+
+    /* 共編：改自己顯示給別人看的名字 */
+    document.getElementById("presence-name")?.addEventListener("click", () => {
+      Trip.editDialog.open({
+        title: "你的名字",
+        fields: [{ name: "name", label: "顯示給一起編輯的人", placeholder: "例如：Darren", max: 30 }],
+        values: { name: Trip.collab.myName() },
+        onSubmit: async ({ name }) => Trip.collab.setName(name),
+      });
+    });
   },
 
   /* 編輯行程資訊：標題、副標、出發日（存到這台裝置或 Notion 的「旅程設定」） */
@@ -55,6 +65,7 @@ Trip.hero = {
   },
 
   deleteLabel(dest) {
+    if (dest?.room) return "離開共編";
     return dest?.notionPageId ? "移到 Notion 垃圾桶" : "刪除這趟行程";
   },
 
@@ -66,7 +77,10 @@ Trip.hero = {
     this.editButton.hidden = !editable;
     this.resync.hidden = !(Trip.editor.canEdit(dest) && Trip.editor.needsResync(dest));
     this.localBar.hidden = !(Trip.tripDelete.canDelete(dest) || editable);
-    this.where.textContent = dest.local ? "存在這台裝置" : dest.notionPageId ? "存在你的 Notion" : "範例行程";
+    this.where.textContent = dest.room
+      ? "共編行程"
+      : dest.local ? "存在這台裝置" : dest.notionPageId ? "存在你的 Notion" : "範例行程";
+    Trip.collab.render();
     this.deleteButton.disabled = false;
     Trip.tripDelete.reset(this.deleteButton, this.deleteLabel(dest));
   },

@@ -28,7 +28,7 @@ Trip.addFlight = {
     const field = (name) => $(`add-flight-${name}`);
     this.f = Object.fromEntries(
       ["type", "number", "airline", "from-code", "from-city", "from-time", "from-terminal",
-        "to-code", "to-city", "to-time", "to-terminal", "duration", "seat", "baggage", "date", "msg", "submit"]
+        "to-code", "to-city", "to-time", "to-terminal", "duration", "baggage", "passengers", "passenger-add", "date", "msg", "submit"]
         .map((name) => [name, field(name)])
     );
 
@@ -36,6 +36,18 @@ Trip.addFlight = {
     $("add-flight-cancel").addEventListener("click", () => this.dialog.close());
     this.remove.addEventListener("click", () => this.confirmDelete());
     this.f.type.addEventListener("change", () => this.applyTypeDefaults());
+
+    /* 旅客：每列一位（姓名＋座位），可以新增、移除 */
+    this.f["passenger-add"].addEventListener("click", () => {
+      this.addPassenger();
+      this.f.passengers.lastElementChild?.querySelector("input")?.focus();
+    });
+    this.f.passengers.addEventListener("click", (e) => {
+      const button = e.target.closest(".passenger-remove");
+      if (!button) return;
+      button.closest("li").remove();
+      this.refreshPassengerAdd();
+    });
 
     /* 填航班號碼時自動帶入航空公司（使用者自己改過就不覆蓋） */
     this.f.number.addEventListener("input", () => {
@@ -125,8 +137,10 @@ Trip.addFlight = {
     set("to-time", flight.to?.time);
     set("to-terminal", flight.to?.terminal);
     set("duration", flight.duration);
-    set("seat", flight.seat);
     set("baggage", flight.baggage);
+    /* 舊資料只有一個座位：放進第一位旅客 */
+    const passengers = flight.passengers?.length ? flight.passengers : flight.seat ? [{ name: "", seat: flight.seat }] : [];
+    passengers.forEach((p) => this.addPassenger(p));
     this.showDate();
     this.show(`編輯${type}航班`, "儲存");
   },
@@ -142,9 +156,11 @@ Trip.addFlight = {
 </label>`
       )
       .join("");
-    for (const name of ["number", "airline", "from-time", "from-terminal", "to-time", "to-terminal", "duration", "seat", "baggage"]) {
+    for (const name of ["number", "airline", "from-time", "from-terminal", "to-time", "to-terminal", "duration", "baggage"]) {
       this.f[name].value = "";
     }
+    this.f.passengers.innerHTML = "";
+    this.refreshPassengerAdd();
     this.airlineAuto = false;
 
     /* 城市的機場代碼要讀城市清單；讀不到也能手動填 */
@@ -203,9 +219,42 @@ Trip.addFlight = {
       from: { code: v("from-code").toUpperCase(), city: v("from-city"), time: v("from-time"), terminal: v("from-terminal") },
       to: { code: v("to-code").toUpperCase(), city: v("to-city"), time: v("to-time"), terminal: v("to-terminal") },
       duration: v("duration"),
-      seat: v("seat"),
       baggage: v("baggage"),
+      passengers: this.collectPassengers(),
     };
+  },
+
+  /* ---------- 旅客 ---------- */
+
+  MAX_PASSENGERS: 20,
+
+  addPassenger({ name = "", seat = "" } = {}) {
+    const { esc } = Trip.utils;
+    const n = this.f.passengers.children.length + 1;
+    this.f.passengers.insertAdjacentHTML(
+      "beforeend",
+      `
+<li class="passenger-row">
+  <input class="passenger-name" maxlength="30" placeholder="旅客姓名" aria-label="第 ${n} 位旅客姓名" autocomplete="off" value="${esc(name)}">
+  <input class="passenger-seat" maxlength="10" placeholder="座位" aria-label="第 ${n} 位旅客座位" autocapitalize="characters" autocomplete="off" value="${esc(seat)}">
+  <button class="passenger-remove" type="button" aria-label="移除這位旅客">✕</button>
+</li>`
+    );
+    this.refreshPassengerAdd();
+  },
+
+  refreshPassengerAdd() {
+    this.f["passenger-add"].hidden = this.f.passengers.children.length >= this.MAX_PASSENGERS;
+  },
+
+  /* 姓名和座位都空白的列不存 */
+  collectPassengers() {
+    return [...this.f.passengers.children]
+      .map((li) => ({
+        name: li.querySelector(".passenger-name").value.trim(),
+        seat: li.querySelector(".passenger-seat").value.trim().toUpperCase(),
+      }))
+      .filter((p) => p.name || p.seat);
   },
 
   async save() {
@@ -244,7 +293,7 @@ Trip.addFlight = {
 
   async run(action) {
     this.setSaving(true);
-    this.message(Trip.state.destination.local ? "儲存中…" : "儲存到 Notion…", "pending");
+    this.message(Trip.state.destination.notionPageId ? "儲存到 Notion…" : "儲存中…", "pending");
     try {
       await action();
     } catch (err) {

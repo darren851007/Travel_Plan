@@ -1,6 +1,6 @@
 /* ============================================================
-   打包：只把網頁需要的檔案複製到 dist/site，再部署到 Cloudflare Pages
-   （functions/ 由 Cloudflare 另外處理；.env 等其他檔案不會被上傳）
+   打包：只把網頁需要的檔案複製到 dist/site（Cloudflare Worker 與 GitHub Pages 都用這份）
+   （server/ 由 Worker 處理；.env 等其他檔案不會被上傳）
    ============================================================ */
 import { cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";

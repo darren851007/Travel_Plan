@@ -19,6 +19,7 @@ Trip.flights = {
     list.innerHTML = trip.flights
       .map((f, i) => {
         const day = formatDate(f.date);
+        const passengers = f.passengers || [];
         return `
 <article class="card flight">
   <header class="flight__head">
@@ -47,9 +48,13 @@ Trip.flights = {
   <dl class="flight__meta">
     <div><dt>日期</dt><dd>${day.md}（${day.weekday}）</dd></div>
     <div><dt>出發航廈</dt><dd>${esc(f.from.terminal)}</dd></div>
-    <div><dt>座位</dt><dd>${esc(f.seat)}</dd></div>
+    ${passengers.length ? "" : `<div><dt>座位</dt><dd>${esc(f.seat)}</dd></div>`}
     <div><dt>行李</dt><dd>${esc(f.baggage)}</dd></div>
   </dl>
+  ${passengers.length ? `
+  <ul class="flight__passengers" aria-label="旅客與座位">
+    ${passengers.map((p) => `<li><span>${esc(p.name || "旅客")}</span><span class="seat">${esc(p.seat || "未選位")}</span></li>`).join("")}
+  </ul>` : ""}
   ${editable ? `<div class="flight__actions"><button class="btn-edit" type="button" data-edit-flight="${esc(f.type)}">編輯</button></div>` : ""}
 </article>`;
       })

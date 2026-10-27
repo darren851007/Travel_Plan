@@ -1,0 +1,19 @@
+# Cloudflare Worker：網頁（Static Assets）＋ /api（Notion 登入、共同編輯）
+# 部署：npm run deploy；本機測試：npm run dev
+name = "travel-plan"
+main = "server/index.js"
+compatibility_date = "2025-09-01"
+
+# 網頁檔案（npm run build 打包到 dist/site，只含網頁需要的檔案）
+[assets]
+directory = "./dist/site"
+binding = "ASSETS"
+
+# 共編房間（免費方案需使用 SQLite 版 Durable Objects）
+[[durable_objects.bindings]]
+name = "TRIP_ROOM"
+class_name = "TripRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["TripRoom"]

@@ -19,6 +19,7 @@ Trip.builder = {
       name: dest.name,
       flag: dest.flag || "",
       local: Boolean(dest.local),
+      room: dest.room || "",
       brand: `${dest.name}小旅行`,
       title: dest.title,
       subtitle: `${days.length} 天 ${nights} 夜 · ${dest.tagline}`,

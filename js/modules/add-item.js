@@ -71,7 +71,9 @@ Trip.addItem = {
     /* 範例行程：有 Notion 時提示登入；沒有 Notion（GitHub Pages）時提示自己新增一趟 */
     const hint = canAdd
       ? ""
-      : Trip.editor.canEdit(dest)
+      : dest?.shared
+        ? "這是好友分享的行程；按上方「加入我的行程」後就能編輯"
+        : Trip.editor.canEdit(dest)
         ? "這趟 Notion 行程要先按「從 Notion 同步」一次，才能在網頁上編輯"
         : status?.configured
           ? status.loggedIn
@@ -259,7 +261,7 @@ Trip.addItem = {
   /* 執行存檔：期間按鈕停用，失敗時顯示原因 */
   async run(action) {
     this.setSaving(true);
-    this.message(Trip.state.destination.local ? "儲存中…" : "儲存到 Notion…", "pending");
+    this.message(Trip.state.destination.notionPageId ? "儲存到 Notion…" : "儲存中…", "pending");
     try {
       await action();
     } catch (err) {

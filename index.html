@@ -26,6 +26,8 @@
   <script defer src="js/core/notion-cache.js"></script>
   <script defer src="js/core/local-trips.js"></script>
   <script defer src="js/core/editor.js"></script>
+  <script defer src="js/core/share.js"></script>
+  <script defer src="js/core/collab.js"></script>
   <script defer src="js/core/utils.js"></script>
   <script defer src="js/core/builder.js"></script>
   <script defer src="js/core/state.js"></script>
@@ -45,6 +47,7 @@
   <script defer src="js/modules/new-trip.js"></script>
   <script defer src="js/modules/trip-delete.js"></script>
   <script defer src="js/modules/edit-dialog.js"></script>
+  <script defer src="js/modules/share-panel.js"></script>
   <script defer src="js/main.js"></script>
 </head>
 <body data-view="picker">
@@ -109,6 +112,22 @@
           <div class="countdown__cell"><span class="countdown__num" data-unit="seconds">–</span><span class="countdown__unit">秒</span></div>
         </div>
         <p class="countdown__done" hidden>出發囉！祝旅途愉快 ✈</p>
+      </div>
+
+      <!-- 共編行程：誰在線上 -->
+      <div class="presence" id="presence" hidden>
+        <span class="presence__dot" aria-hidden="true"></span>
+        <span id="presence-text"></span>
+        <button class="btn-edit" type="button" id="presence-name">改名字</button>
+      </div>
+
+      <!-- 分享給好友；打開好友分享的連結時改成顯示「誰分享的」 -->
+      <div class="trip-share" id="trip-share-bar">
+        <button class="btn btn--small" type="button" id="trip-share">分享給好友</button>
+      </div>
+      <div class="shared-banner" id="shared-banner" hidden>
+        <p><strong id="shared-from"></strong>分享的行程 · 唯讀</p>
+        <button class="btn btn--small" type="button" id="shared-save">加入我的行程</button>
       </div>
 
       <!-- 刪除行程：自己在這台裝置建立的、或登入後從 Notion 同步的 -->
@@ -272,6 +291,53 @@
     </form>
   </dialog>
 
+  <!-- 分享給好友對話框 -->
+  <dialog class="dialog" id="share-dialog" aria-labelledby="share-title">
+    <form class="dialog__form" id="share-form" novalidate>
+      <h3 class="dialog__title" id="share-title">分享給好友</h3>
+
+      <label class="field">
+        <span class="field__label">你的名字（顯示給好友，可以不填）</span>
+        <input id="share-from" maxlength="30" autocomplete="nickname" placeholder="例如：Darren">
+      </label>
+
+      <label class="check-row">
+        <input type="checkbox" id="share-private">
+        <span>包含訂房編號、電話、旅客與座位</span>
+      </label>
+
+      <label class="field">
+        <span class="field__label">分享連結</span>
+        <input id="share-link" readonly>
+      </label>
+      <p class="field__hint">好友打開是唯讀，可以「加入我的行程」存一份到自己的手機。行程內容只在連結裡，不會上傳到任何地方；之後修改要再分享一次。</p>
+
+      <!-- 一起編輯（部署在 Cloudflare 時才有） -->
+      <div class="share-collab" id="share-collab" hidden>
+        <p class="field__label">一起編輯</p>
+        <p class="field__hint" id="share-collab-hint">建立共編連結後，拿到連結的人都能即時一起修改這趟行程（不用登入）。</p>
+        <div class="btn-row">
+          <button class="btn" type="button" id="share-collab-create">建立共編連結</button>
+        </div>
+        <label class="field" id="share-collab-field" hidden>
+          <span class="field__label">共編連結（拿到的人都能編輯）</span>
+          <input id="share-collab-link" readonly>
+        </label>
+        <div class="btn-row" id="share-collab-actions" hidden>
+          <button class="btn btn--ghost" type="button" id="share-collab-copy">複製共編連結</button>
+        </div>
+      </div>
+
+      <p class="notion__msg" id="share-msg" role="status" aria-live="polite"></p>
+
+      <div class="btn-row dialog__actions">
+        <button class="btn btn--ghost" type="button" id="share-close">關閉</button>
+        <button class="btn btn--ghost" type="button" id="share-copy">複製連結</button>
+        <button class="btn" type="button" id="share-native" hidden>分享…</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- 新增航班對話框 -->
   <dialog class="dialog" id="add-flight-dialog" aria-labelledby="add-flight-title">
     <form class="dialog__form" id="add-flight-form" novalidate>
@@ -319,15 +385,16 @@
           <input id="add-flight-duration" maxlength="20" placeholder="例如：2h 25m" autocomplete="off">
         </label>
         <label class="field">
-          <span class="field__label">座位</span>
-          <input id="add-flight-seat" maxlength="20" placeholder="例如：32A" autocomplete="off">
+          <span class="field__label">行李</span>
+          <input id="add-flight-baggage" maxlength="50" placeholder="例如：託運 23kg" autocomplete="off">
         </label>
       </div>
 
-      <label class="field">
-        <span class="field__label">行李</span>
-        <input id="add-flight-baggage" maxlength="50" placeholder="例如：託運 23kg" autocomplete="off">
-      </label>
+      <fieldset class="dialog__fieldset field passengers">
+        <legend class="field__label">旅客與座位</legend>
+        <ul class="passengers__list" id="add-flight-passengers"></ul>
+        <button class="btn btn--ghost btn--small passengers__add" type="button" id="add-flight-passenger-add">＋ 新增旅客</button>
+      </fieldset>
 
       <p class="field__hint" id="add-flight-date"></p>
       <p class="notion__msg" id="add-flight-msg" role="status" aria-live="polite"></p>
