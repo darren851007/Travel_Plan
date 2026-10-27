@@ -13,6 +13,8 @@ Trip.flights = {
     if (!list) return;
 
     const { esc, formatDate } = Trip.utils;
+    const dest = Trip.state.destination;
+    const editable = Trip.editor.canEdit(dest) && !Trip.editor.needsResync(dest);
 
     list.innerHTML = trip.flights
       .map((f, i) => {
@@ -48,6 +50,7 @@ Trip.flights = {
     <div><dt>座位</dt><dd>${esc(f.seat)}</dd></div>
     <div><dt>行李</dt><dd>${esc(f.baggage)}</dd></div>
   </dl>
+  ${editable ? `<div class="flight__actions"><button class="btn-edit" type="button" data-edit-flight="${esc(f.type)}">編輯</button></div>` : ""}
 </article>`;
       })
       .join("");

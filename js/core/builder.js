@@ -23,17 +23,18 @@ Trip.builder = {
       title: dest.title,
       subtitle: `${days.length} 天 ${nights} 夜 · ${dest.tagline}`,
       dateRange: this.formatRange(start, end),
-      /* 起飛時間還沒填時，倒數算到出發日 00:00 */
-      departure: `${start}T${dest.flights.outbound.from.time || "00:00"}:00${config.originTimezone}`,
+      /* 還沒有去程航班或起飛時間時，倒數算到出發日 00:00 */
+      departure: `${start}T${dest.flights?.outbound?.from?.time || "00:00"}:00${config.originTimezone}`,
       art: dest.art,
       transports: config.transports,
       cities: this.cities(days),
       nights,
 
+      /* 航班可以之後再新增：只列出已經有的 */
       flights: [
-        { type: "去程", date: start, ...dest.flights.outbound },
-        { type: "回程", date: end, ...dest.flights.inbound },
-      ],
+        dest.flights?.outbound && { type: "去程", date: start, ...dest.flights.outbound },
+        dest.flights?.inbound && { type: "回程", date: end, ...dest.flights.inbound },
+      ].filter(Boolean),
 
       days,
 

@@ -39,6 +39,18 @@ window.Trip = window.Trip || {};
       return reducedMotion.matches;
     },
 
+    /* 城市與國家清單（js/data/cities.json），第一次用到時才讀，之後共用 */
+    cities() {
+      this._cities ||= fetch("js/data/cities.json").then((res) => {
+        if (!res.ok) throw new Error(`連線錯誤（${res.status}）`);
+        return res.json();
+      });
+      this._cities.catch(() => {
+        this._cities = null;
+      });
+      return this._cities;
+    },
+
     /* 移除再加回 class，讓動畫每次都重新播放 */
     replay(el, className = "is-bouncing") {
       el.classList.remove(className);

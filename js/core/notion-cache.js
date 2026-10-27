@@ -38,7 +38,7 @@ Trip.notionCache = {
 
     const cache = this.load();
     const valid = (cache?.destinations || []).filter(
-      (d) => d?.id && d.days?.length && d.flights?.outbound && d.flights?.inbound
+      (d) => d?.id && d.days?.length
     );
     if (!valid.length) return;
 

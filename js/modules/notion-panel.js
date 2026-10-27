@@ -23,8 +23,8 @@ Trip.notionPanel = {
       return;
     }
     this.status = status;
-    Trip.addItem?.refresh();
-    Trip.hero?.updateActions();
+    /* 知道登入狀態後重畫行程，編輯按鈕才會出現 */
+    if (Trip.state.destination) Trip.editor.rerender();
     Trip.picker?.updateActions();
     if (!status.configured) return;
     this.section.hidden = false;

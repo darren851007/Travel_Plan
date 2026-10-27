@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
     Trip.checklist,
     Trip.lodging,
     Trip.addItem,
+    Trip.addFlight,
   ];
 
   /* 頁尾顯示資料來源：Notion 同步或內建範例 */
@@ -29,6 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
     views.forEach((view) => view.render(trip, options));
   });
 
+  Trip.editDialog.init();
   Trip.newTrip.init();
   Trip.picker.init();
   Trip.picker.render();

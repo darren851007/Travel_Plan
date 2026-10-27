@@ -72,12 +72,33 @@ Trip.localTrips = {
     const hidden = new Set(this.hiddenSamples());
     if (!Trip.dataSource?.syncedAt) Trip.destinations = Trip.destinations.filter((d) => !hidden.has(d.id));
 
-    const valid = this.load().filter((d) => d?.id && d.days?.length && d.flights?.outbound && d.flights?.inbound);
+    const stored = this.load();
+    if (this.addUids(stored)) this.save(stored);
+
+    const valid = stored.filter((d) => d?.id && d.days?.length);
     valid.forEach((d) => {
       d.local = true;
       d.checklistIsFull = true;
     });
     Trip.destinations = [...Trip.destinations, ...valid];
+  },
+
+  /* 每個景點、航班、住宿都要有 uid 才能編輯；舊資料補上（回傳是否有補） */
+  addUids(list) {
+    let changed = false;
+    const give = (row) => {
+      if (row && !row.uid) {
+        row.uid = `u${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+        changed = true;
+      }
+    };
+    for (const d of list) {
+      d.days?.forEach((day) => day.items?.forEach(give));
+      give(d.flights?.outbound);
+      give(d.flights?.inbound);
+      d.lodgings?.forEach(give);
+    }
+    return changed;
   },
 
   newId() {
@@ -86,6 +107,7 @@ Trip.localTrips = {
 
   add(dest) {
     const trip = { ...dest, local: true, checklistIsFull: true };
+    this.addUids([trip]);
     if (!this.save([...this.load(), trip])) return null;
     Trip.destinations.push(trip);
     return trip;

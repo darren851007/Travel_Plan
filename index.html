@@ -25,6 +25,7 @@
   <script defer src="js/data/destinations/japan.js"></script>
   <script defer src="js/core/notion-cache.js"></script>
   <script defer src="js/core/local-trips.js"></script>
+  <script defer src="js/core/editor.js"></script>
   <script defer src="js/core/utils.js"></script>
   <script defer src="js/core/builder.js"></script>
   <script defer src="js/core/state.js"></script>
@@ -40,8 +41,10 @@
   <script defer src="js/modules/lodging.js"></script>
   <script defer src="js/modules/notion-panel.js"></script>
   <script defer src="js/modules/add-item.js"></script>
+  <script defer src="js/modules/add-flight.js"></script>
   <script defer src="js/modules/new-trip.js"></script>
   <script defer src="js/modules/trip-delete.js"></script>
+  <script defer src="js/modules/edit-dialog.js"></script>
   <script defer src="js/main.js"></script>
 </head>
 <body data-view="picker">
@@ -111,8 +114,10 @@
       <!-- 刪除行程：自己在這台裝置建立的、或登入後從 Notion 同步的 -->
       <div class="trip-local" id="trip-local" hidden>
         <span class="pill tone-butter" id="trip-where"></span>
+        <button class="btn btn--ghost btn--small" type="button" id="trip-edit" hidden>編輯行程資訊</button>
         <button class="btn btn--ghost btn--small" type="button" id="trip-delete">刪除這趟行程</button>
       </div>
+      <p class="field__hint trip-resync" id="trip-resync" hidden>這趟 Notion 行程要先在「選擇行程」頁按「從 Notion 同步」一次，才能在網頁上編輯</p>
     </section>
 
     <!-- ========== 航班 ========== -->
@@ -124,6 +129,15 @@
         </div>
       </div>
       <div class="stack stack--2" id="flight-list"></div>
+
+      <!-- 還沒有航班時的提示；可以編輯的行程才有「新增航班」 -->
+      <div class="card flight-empty" id="flight-empty" hidden>
+        <p>還沒有航班資訊</p>
+        <p class="field__hint" id="flight-hint"></p>
+      </div>
+      <div class="add-item-bar add-flight-bar">
+        <button class="btn" type="button" id="add-flight-open" hidden>＋ 新增航班</button>
+      </div>
     </section>
 
     <!-- ========== 每日行程 ========== -->
@@ -167,6 +181,9 @@
             <span id="checklist-count">0 / 0</span>
           </div>
           <ul id="checklist"></ul>
+          <div class="btn-row edit-bar" hidden id="checklist-add-bar">
+            <button class="btn btn--ghost btn--small" type="button" id="checklist-add">＋ 新增項目</button>
+          </div>
         </div>
 
         <div class="card">
@@ -175,6 +192,9 @@
             住宿資訊
           </h3>
           <div id="lodging"></div>
+          <div class="btn-row edit-bar" hidden id="lodging-add-bar">
+            <button class="btn btn--ghost btn--small" type="button" id="lodging-add">＋ 新增住宿</button>
+          </div>
         </div>
       </div>
     </section>
@@ -231,8 +251,91 @@
       <p class="notion__msg" id="add-item-msg" role="status" aria-live="polite"></p>
 
       <div class="btn-row dialog__actions">
+        <button class="btn btn--ghost btn--danger" type="button" id="add-item-delete" hidden>刪除</button>
         <button class="btn btn--ghost" type="button" id="add-item-cancel">取消</button>
-        <button class="btn" type="submit" id="add-item-submit">新增到 Notion</button>
+        <button class="btn" type="submit" id="add-item-submit">新增</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 通用編輯對話框（住宿、清單、旅程資訊、編輯這一天） -->
+  <dialog class="dialog" id="edit-dialog" aria-labelledby="edit-title">
+    <form class="dialog__form" id="edit-form" novalidate>
+      <h3 class="dialog__title" id="edit-title"></h3>
+      <div class="edit-fields" id="edit-fields"></div>
+      <p class="notion__msg" id="edit-msg" role="status" aria-live="polite"></p>
+      <div class="btn-row dialog__actions">
+        <button class="btn btn--ghost btn--danger" type="button" id="edit-delete" hidden>刪除</button>
+        <button class="btn btn--ghost" type="button" id="edit-cancel">取消</button>
+        <button class="btn" type="submit" id="edit-submit">儲存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 新增航班對話框 -->
+  <dialog class="dialog" id="add-flight-dialog" aria-labelledby="add-flight-title">
+    <form class="dialog__form" id="add-flight-form" novalidate>
+      <h3 class="dialog__title" id="add-flight-title">新增航班</h3>
+
+      <fieldset class="field dialog__fieldset">
+        <legend class="field__label">類型</legend>
+        <div class="chip-list" id="add-flight-type"></div>
+      </fieldset>
+
+      <div class="dialog__row">
+        <label class="field">
+          <span class="field__label">航班號碼</span>
+          <input id="add-flight-number" maxlength="30" placeholder="例如：CI 160" autocomplete="off" autocapitalize="characters">
+        </label>
+        <label class="field">
+          <span class="field__label">航空公司</span>
+          <input id="add-flight-airline" maxlength="50" placeholder="依航班號碼自動帶入" autocomplete="off">
+        </label>
+      </div>
+
+      <fieldset class="dialog__fieldset flight-form__group">
+        <legend class="field__label">出發</legend>
+        <div class="dialog__row">
+          <input id="add-flight-from-code" maxlength="4" placeholder="機場代碼 TPE" aria-label="出發機場代碼" autocapitalize="characters" autocomplete="off">
+          <input id="add-flight-from-city" maxlength="50" placeholder="城市" aria-label="出發城市" autocomplete="off">
+          <input id="add-flight-from-time" type="time" aria-label="出發時間">
+          <input id="add-flight-from-terminal" maxlength="50" placeholder="航廈" aria-label="出發航廈" autocomplete="off">
+        </div>
+      </fieldset>
+
+      <fieldset class="dialog__fieldset flight-form__group">
+        <legend class="field__label">抵達</legend>
+        <div class="dialog__row">
+          <input id="add-flight-to-code" maxlength="4" placeholder="機場代碼" aria-label="抵達機場代碼" autocapitalize="characters" autocomplete="off">
+          <input id="add-flight-to-city" maxlength="50" placeholder="城市" aria-label="抵達城市" autocomplete="off">
+          <input id="add-flight-to-time" type="time" aria-label="抵達時間">
+          <input id="add-flight-to-terminal" maxlength="50" placeholder="航廈" aria-label="抵達航廈" autocomplete="off">
+        </div>
+      </fieldset>
+
+      <div class="dialog__row">
+        <label class="field">
+          <span class="field__label">飛行時間</span>
+          <input id="add-flight-duration" maxlength="20" placeholder="例如：2h 25m" autocomplete="off">
+        </label>
+        <label class="field">
+          <span class="field__label">座位</span>
+          <input id="add-flight-seat" maxlength="20" placeholder="例如：32A" autocomplete="off">
+        </label>
+      </div>
+
+      <label class="field">
+        <span class="field__label">行李</span>
+        <input id="add-flight-baggage" maxlength="50" placeholder="例如：託運 23kg" autocomplete="off">
+      </label>
+
+      <p class="field__hint" id="add-flight-date"></p>
+      <p class="notion__msg" id="add-flight-msg" role="status" aria-live="polite"></p>
+
+      <div class="btn-row dialog__actions">
+        <button class="btn btn--ghost btn--danger" type="button" id="add-flight-delete" hidden>刪除</button>
+        <button class="btn btn--ghost" type="button" id="add-flight-cancel">取消</button>
+        <button class="btn" type="submit" id="add-flight-submit">新增航班</button>
       </div>
     </form>
   </dialog>

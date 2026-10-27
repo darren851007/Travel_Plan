@@ -1,6 +1,6 @@
 /* ============================================================
    新增行程（整趟旅程）：選國家 → 城市與每個城市的天數 → 出發日 → 標題
-   先填好每天的預設行程、每個城市的住宿、去回程航班（機場依城市自動帶入）
+   先填好每天的預設行程、每個城市的住宿；航班之後在行程頁按「＋ 新增航班」
    - 已登入 Notion：建立到使用者自己的 Notion（國家頁面＋5 張表）
    - 沒有 Notion（例如 GitHub Pages）：存在這台裝置的瀏覽器
    ============================================================ */
@@ -95,10 +95,7 @@ Trip.newTrip = {
     this.dialog.showModal();
 
     try {
-      this.data ||= await fetch("js/data/cities.json").then((res) => {
-        if (!res.ok) throw new Error(`連線錯誤（${res.status}）`);
-        return res.json();
-      });
+      this.data ||= await Trip.utils.cities();
     } catch (err) {
       this.message(`讀不到城市清單：${err.message}`, "error");
       return;
@@ -274,13 +271,6 @@ Trip.newTrip = {
     });
 
     const first = info(cities[0]);
-    const end = info(cities[last]);
-    const flight = (number, from, to) => ({
-      airline: "", number, duration: "", seat: "", baggage: "",
-      from: { code: from.airport || "", city: from.name || "", time: "", terminal: "" },
-      to: { code: to.airport || "", city: to.name || "", time: "", terminal: "" },
-    });
-    const home = { airport: "TPE", name: "台北桃園" };
 
     return {
       id: meta.id || country,
@@ -290,10 +280,8 @@ Trip.newTrip = {
       tagline: this.stops.map((s) => s.city).join("、"),
       art: first.art || "heroGeneric",
       startDate: this.fields.date.value,
-      flights: {
-        outbound: flight("去程航班（待填）", home, first),
-        inbound: flight("回程航班（待填）", end, home),
-      },
+      /* 航班一開始不帶資料，之後在行程頁按「＋ 新增航班」 */
+      flights: {},
       days,
       lodgings: [...new Set(cities)].map((city) => ({
         city, name: `${city}住宿（待填）`, address: "", room: "",

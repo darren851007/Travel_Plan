@@ -1,5 +1,6 @@
 /* ============================================================
    每日行程：上方日期切換（彈跳動畫），下方時間軸
+   可以編輯的行程：「編輯這一天」改主題與城市、每個景點都有「編輯」
    ============================================================ */
 window.Trip = window.Trip || {};
 
@@ -13,6 +14,13 @@ Trip.itinerary = {
     this.tabs.addEventListener("click", (e) => {
       const tab = e.target.closest(".day-tab");
       if (tab) this.select(Number(tab.dataset.index), true);
+    });
+
+    /* 編輯這一天／編輯景點（js/modules/add-item.js） */
+    this.panel.addEventListener("click", (e) => {
+      if (e.target.closest("[data-edit-day]")) Trip.addItem.editDay(this.current);
+      const item = e.target.closest("[data-edit-item]");
+      if (item) Trip.addItem.openEdit(item.dataset.editItem);
     });
 
     /* 鍵盤左右鍵切換日期 */
@@ -69,9 +77,15 @@ Trip.itinerary = {
     return `<span class="pill tone-${esc(t.tone)}">${esc(t.label)}</span>`;
   },
 
+  editable() {
+    const dest = Trip.state.destination;
+    return Trip.editor.canEdit(dest) && !Trip.editor.needsResync(dest);
+  },
+
   renderDay(day, index) {
     const { esc, formatDate } = Trip.utils;
     const d = formatDate(day.date);
+    const editable = this.editable();
     const items = day.items
       .map(
         (item, i) => `
@@ -81,6 +95,7 @@ Trip.itinerary = {
     <h4 class="tl-title">
       ${esc(item.title)}
       ${item.must ? '<span class="badge-must">★ 必去</span>' : ""}
+      ${editable && item.uid ? `<button class="btn-edit tl-edit" type="button" data-edit-item="${esc(item.uid)}" aria-label="編輯「${esc(item.title)}」">編輯</button>` : ""}
     </h4>
     ${item.note ? `<p class="tl-note">${esc(item.note)}</p>` : ""}
     <div class="tl-tags">${(item.transport || []).map((k) => this.renderTag(k)).join("")}</div>
@@ -94,6 +109,7 @@ Trip.itinerary = {
   <h3 class="day-panel__title">Day ${index + 1} · ${d.md}（${d.weekday}）</h3>
   ${day.city ? `<span class="pill tone-sky">${esc(day.city)}</span>` : ""}
   <p class="day-panel__theme">${esc(day.theme)}</p>
+  ${editable ? '<button class="btn-edit" type="button" data-edit-day>編輯這一天</button>' : ""}
 </div>
 <ol class="timeline">${items}</ol>`;
   },

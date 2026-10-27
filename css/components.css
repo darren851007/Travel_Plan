@@ -425,11 +425,14 @@
   gap: 12px;
   min-height: 48px;
   padding: 8px 2px;
-  border-bottom: 2px dashed var(--dash);
   cursor: pointer;
 }
 
-.check-item:last-child label {
+.check-item {
+  border-bottom: 2px dashed var(--dash);
+}
+
+.check-item:last-child {
   border-bottom: 0;
 }
 
@@ -1145,3 +1148,123 @@ a.btn.is-disabled {
   justify-content: center;
   margin-top: 18px;
 }
+
+/* ---------- 新增航班 ---------- */
+.flight-empty {
+  display: grid;
+  gap: 4px;
+  box-shadow: none;
+  border-style: dashed;
+  text-align: center;
+}
+
+.add-flight-bar {
+  margin-top: 16px;
+  margin-bottom: 0;
+}
+
+.add-flight-bar:has(button[hidden]) {
+  display: none;
+}
+
+/* 出發／抵達：2 × 2 的小欄位 */
+.flight-form__group .dialog__row input {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: var(--line) solid var(--ink);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  font: inherit;
+  font-size: 16px;
+  color: inherit;
+}
+
+.flight-form__group .dialog__row {
+  margin-top: 6px;
+}
+
+/* ---------- 編輯 ---------- */
+.edit-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 12px;
+}
+
+.edit-fields .field {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.edit-fields .field--half {
+  grid-column: auto;
+}
+
+.dialog__form .edit-fields .field + .field {
+  margin-top: 0;
+}
+
+.btn--danger {
+  margin-right: auto;
+  color: var(--ink);
+}
+
+.edit-bar {
+  margin-top: 12px;
+}
+
+/* 卡片角落的小「編輯」鈕 */
+.btn-edit {
+  flex: none;
+  padding: 2px 10px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--card);
+  font: inherit;
+  font-size: 0.78rem;
+  color: inherit;
+  cursor: pointer;
+}
+
+.btn-edit:hover {
+  background: var(--butter);
+}
+
+.trip-resync {
+  margin-top: 10px;
+  text-align: center;
+}
+
+.tl-edit {
+  margin-left: auto;
+}
+
+.flight__actions,
+.lodging__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.flight__actions {
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.lodging__actions .lodging__map {
+  margin-top: 14px;
+}
+
+.check-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.check-item label {
+  flex: 1;
+  min-width: 0;
+}
+
