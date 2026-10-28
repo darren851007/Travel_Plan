@@ -3,6 +3,7 @@
    - 自己在這台裝置建立的行程：存在這台裝置
    - 共編行程：存到共編房間（存檔都走 js/core/editor.js）
    每個景點可以放一張照片（js/core/photos.js），顯示在時間軸上
+   餐廳也用同一個對話框（kind: "food"）：多了餐別（早餐、午餐…），和景點一起依時間排序
    ============================================================ */
 window.Trip = window.Trip || {};
 
@@ -10,7 +11,6 @@ Trip.addItem = {
   init() {
     const $ = (id) => document.getElementById(id);
     this.bar = $("add-item-bar");
-    this.openButton = $("add-item-open");
     this.hint = $("add-item-hint");
     this.dialog = $("add-item-dialog");
     this.form = $("add-item-form");
@@ -20,6 +20,9 @@ Trip.addItem = {
       heading: $("add-item-title"),
       day: $("add-item-day"),
       time: $("add-item-time"),
+      end: $("add-item-end"),
+      duration: $("add-item-duration"),
+      endCalc: $("add-item-end-calc"),
       city: $("add-item-city"),
       cities: $("add-item-cities"),
       title: $("add-item-name"),
@@ -34,9 +37,26 @@ Trip.addItem = {
       remove: $("add-item-delete"),
       photo: $("add-item-photo"),
       photoLabel: $("add-item-photo-label"),
+      nameLabel: $("add-item-name-label"),
+      mealField: $("add-item-meal-field"),
+      meal: $("add-item-meal"),
+      mustLabel: $("add-item-must-label"),
     };
 
-    this.openButton.addEventListener("click", () => this.open());
+    /* 選了餐別、還沒填時間：帶入這個餐別常見的時間與停留時間 */
+    this.fields.meal.addEventListener("change", (e) => {
+      const meal = Trip.config.meals.find((m) => m.label === e.target.value);
+      if (!meal) return;
+      if (!this.fields.time.value) this.fields.time.value = meal.time;
+      if (!this.fields.duration.value) this.setDuration(meal.minutes);
+      this.syncTimes();
+    });
+
+    /* 出發、抵達、停留任何一個改了，就重算結束時間（抵達＋停留） */
+    for (const name of ["time", "end", "duration"]) {
+      this.fields[name].addEventListener("change", () => this.syncTimes());
+      this.fields[name].addEventListener("input", () => this.syncTimes());
+    }
     $("add-item-cancel").addEventListener("click", () => this.dialog.close());
     this.fields.day.addEventListener("change", () => this.applyDayDefaults());
     this.fields.remove.addEventListener("click", () => this.confirmDelete());
@@ -77,22 +97,22 @@ Trip.addItem = {
           ? "連上共編後就能編輯"
           : "";
     this.bar.hidden = false;
-    this.openButton.hidden = !canAdd;
     this.hint.textContent = hint;
   },
 
   /* ---------- 對話框 ---------- */
 
-  /* 新增：預設在目前選的那一天 */
-  open() {
+  /* 新增：預設在目前選的那一天；kind：spot（景點）或 food（餐廳） */
+  open(kind = "spot") {
     this.editing = null;
+    this.kind = kind;
     this.prepare();
     const days = this.trip.days;
     const current = days[Trip.itinerary.current || 0];
     this.fields.day.value = String(current?.number || (Trip.itinerary.current || 0) + 1);
     this.applyDayDefaults();
     this.preparePhoto(null);
-    this.show("新增景點", "新增");
+    this.show(this.kind === "food" ? "新增餐廳" : "新增景點", "新增");
   },
 
   /* 照片欄位：共編行程大家都看得到，其他存在這台裝置 */
@@ -110,20 +130,27 @@ Trip.addItem = {
     const day = dest.days[at.d];
     const item = day.items[at.i];
     this.editing = { uid, dayIndex: at.d };
+    this.kind = item.kind === "food" ? "food" : "spot";
     this.prepare();
 
     const f = this.fields;
     f.day.value = String(day.number || at.d + 1);
     f.time.value = item.time || "";
+    /* 抵達時間；舊資料沒有抵達時間（當時的「結束時間」是出發＋停留），停留時間從那裡算回來 */
+    f.end.value = item.arriveTime || "";
+    this.setDuration(item.duration || (item.arriveTime ? "" : Trip.utils.minutesBetween(item.time, item.endTime)) || "");
+    this.syncTimes();
     f.city.value = day.city || "";
     f.title.value = item.title || "";
     f.note.value = item.note || "";
     f.map.value = item.map || "";
     f.must.checked = Boolean(item.must);
+    const meal = f.meal.querySelector(`input[value="${CSS.escape(item.meal || "")}"]`);
+    if (meal) meal.checked = true;
     for (const box of f.transport.querySelectorAll("input")) box.checked = (item.transport || []).includes(box.value);
     f.themeField.hidden = true;
     this.preparePhoto(await Trip.photos.url(dest, uid));
-    this.show("編輯景點", "儲存");
+    this.show(this.kind === "food" ? "編輯餐廳" : "編輯景點", "儲存");
   },
 
   /* 清空表單、產生日期與交通選項 */
@@ -154,7 +181,26 @@ Trip.addItem = {
       )
       .join("");
 
+    /* 景點／餐廳：名稱提示、餐別、必去或必吃 */
+    const food = this.kind === "food";
+    f.nameLabel.textContent = food ? "餐廳名稱" : "名稱";
+    f.title.placeholder = food ? "例如：明洞餃子" : "例如：昌德宮";
+    f.mealField.hidden = !food;
+    f.mustLabel.textContent = food ? "★ 必吃" : "★ 必去";
+    f.meal.innerHTML = Trip.config.meals
+      .map(
+        (m) => `
+<label class="chip">
+  <input type="radio" name="meal" value="${esc(m.label)}">
+  <span class="pill tone-${esc(m.tone)}">${esc(m.label)}</span>
+</label>`
+      )
+      .join("");
+
     f.time.value = "";
+    f.end.value = "";
+    this.setDuration("");
+    this.syncTimes();
     f.title.value = "";
     f.theme.value = "";
     f.note.value = "";
@@ -174,6 +220,39 @@ Trip.addItem = {
     f.title.focus();
   },
 
+  /* ---------- 開始、結束、停留 ---------- */
+
+  DURATIONS: [15, 30, 45, 60, 75, 90, 120, 150, 180, 240, 300, 360, 480],
+
+  /* 停留時間選單：常用的選項；算出來不在清單裡的（例如 1 小時 10 分）另外加一個 */
+  setDuration(minutes) {
+    const { formatMinutes } = Trip.utils;
+    const list = [...this.DURATIONS];
+    if (minutes && !list.includes(minutes)) list.push(minutes);
+    list.sort((a, b) => a - b);
+    this.fields.duration.innerHTML =
+      `<option value="">不指定</option>` + list.map((m) => `<option value="${m}">${formatMinutes(m)}</option>`).join("");
+    this.fields.duration.value = minutes ? String(minutes) : "";
+  },
+
+  /* 結束時間＝抵達（沒填就用出發）＋停留 */
+  endTimeOf({ time, arriveTime, duration }) {
+    const base = arriveTime || time;
+    return base && duration ? Trip.utils.addMinutes(base, duration) : "";
+  },
+
+  /* 對話框裡顯示算好的結束時間 */
+  syncTimes() {
+    const { formatMinutes } = Trip.utils;
+    const f = this.fields;
+    const minutes = Number(f.duration.value) || 0;
+    const end = this.endTimeOf({ time: f.time.value, arriveTime: f.end.value, duration: minutes });
+    f.endCalc.hidden = !end;
+    f.endCalc.textContent = end
+      ? `結束時間：${end}（${f.end.value ? `抵達 ${f.end.value}` : `出發 ${f.time.value}`} ＋ 停留 ${formatMinutes(minutes)}）`
+      : "";
+  },
+
   /* 換天時：城市預設為那天的城市；那天還沒有主題（或是新的一天）才顯示主題欄 */
   applyDayDefaults() {
     const f = this.fields;
@@ -189,12 +268,18 @@ Trip.addItem = {
     const item = {
       day: Number(f.day.value),
       time: f.time.value,
+      arriveTime: f.end.value,
+      duration: Number(f.duration.value) || "",
+      /* 結束時間是算出來的（抵達＋停留），一起存著方便顯示與匯出 */
+      endTime: this.endTimeOf({ time: f.time.value, arriveTime: f.end.value, duration: Number(f.duration.value) || 0 }),
       city: f.city.value.trim(),
       title: f.title.value.trim(),
       transport: [...f.transport.querySelectorAll("input:checked")].map((el) => el.value),
       must: f.must.checked,
       note: f.note.value.trim(),
       map: f.map.value.trim(),
+      kind: this.kind === "food" ? "food" : "spot",
+      meal: this.kind === "food" ? f.meal.querySelector("input:checked")?.value || "" : "",
     };
     /* 主題只在新的一天（或那天還沒有主題）時送出，編輯景點不會動到當天主題 */
     if (!f.themeField.hidden) item.theme = f.theme.value.trim();
@@ -204,8 +289,13 @@ Trip.addItem = {
   async save() {
     const item = this.collect();
     if (!item.title) {
-      this.message("請填寫行程名稱", "error");
+      this.message(item.kind === "food" ? "請填寫餐廳名稱" : "請填寫行程名稱", "error");
       this.fields.title.focus();
+      return;
+    }
+    if (item.arriveTime && !item.time) {
+      this.message("填了抵達時間，也要填出發時間", "error");
+      this.fields.time.focus();
       return;
     }
     if (item.time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(item.time)) {

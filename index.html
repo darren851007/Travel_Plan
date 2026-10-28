@@ -155,18 +155,18 @@
         </div>
       </div>
 
-      <!-- 新增景點（可以編輯的行程才會出現按鈕） -->
-      <div class="add-item-bar" id="add-item-bar" hidden>
-        <button class="btn" type="button" id="add-item-open" hidden>＋ 新增景點</button>
-        <p class="field__hint" id="add-item-hint"></p>
-      </div>
-
       <div class="legend" id="transport-legend" aria-label="交通方式顏色說明"></div>
       <div class="day-tabs-wrap" id="day-tabs-wrap">
         <button class="day-tabs__arrow day-tabs__arrow--prev" type="button" id="day-tabs-prev" aria-label="前面的日期" hidden>‹</button>
         <div class="day-tabs" id="day-tabs" role="tablist" aria-label="選擇日期"></div>
         <button class="day-tabs__arrow day-tabs__arrow--next" type="button" id="day-tabs-next" aria-label="後面的日期" hidden>›</button>
       </div>
+
+      <!-- 不能編輯時的提示（新增景點／餐廳的按鈕在當天標題下面，由 js/modules/itinerary.js 產生） -->
+      <div class="add-item-bar" id="add-item-bar" hidden>
+        <p class="field__hint" id="add-item-hint"></p>
+      </div>
+
       <div class="day-panel" id="day-panel" role="tabpanel"></div>
     </section>
 
@@ -181,17 +181,32 @@
       </div>
 
       <div class="stack stack--2">
-        <div class="card">
-          <h3 class="card__title">待辦事項</h3>
+        <!-- 準備清單：待辦事項、行李準備兩張卡片（js/modules/checklist.js 產生內容） -->
+        <div class="card" data-check-group="todo">
+          <h3 class="card__title">📝 待辦事項</h3>
           <div class="progress">
-            <div class="progress__track" role="progressbar" aria-label="準備進度" aria-valuemin="0">
-              <div class="progress__bar" id="checklist-bar"></div>
+            <div class="progress__track" role="progressbar" aria-label="待辦事項進度" aria-valuemin="0">
+              <div class="progress__bar" data-check-bar></div>
             </div>
-            <span id="checklist-count">0 / 0</span>
+            <span data-check-count>0 / 0</span>
           </div>
-          <ul id="checklist"></ul>
-          <div class="btn-row edit-bar" hidden id="checklist-add-bar">
-            <button class="btn btn--ghost btn--small" type="button" id="checklist-add">＋ 新增項目</button>
+          <ul class="check-list" data-check-list></ul>
+          <div class="btn-row edit-bar" hidden data-check-add-bar>
+            <button class="btn btn--ghost btn--small" type="button" data-check-add>＋ 新增項目</button>
+          </div>
+        </div>
+
+        <div class="card" data-check-group="packing">
+          <h3 class="card__title">🧳 行李準備</h3>
+          <div class="progress">
+            <div class="progress__track" role="progressbar" aria-label="行李準備進度" aria-valuemin="0">
+              <div class="progress__bar" data-check-bar></div>
+            </div>
+            <span data-check-count>0 / 0</span>
+          </div>
+          <ul class="check-list" data-check-list></ul>
+          <div class="btn-row edit-bar" hidden data-check-add-bar>
+            <button class="btn btn--ghost btn--small" type="button" data-check-add>＋ 新增項目</button>
           </div>
         </div>
 
@@ -222,20 +237,37 @@
 
       <div class="dialog__row">
         <label class="field">
-          <span class="field__label">時間</span>
+          <span class="field__label">出發時間</span>
           <input id="add-item-time" name="time" type="time" step="300">
         </label>
         <label class="field">
-          <span class="field__label">城市</span>
-          <input id="add-item-city" name="city" list="add-item-cities" autocomplete="off" maxlength="100">
-          <datalist id="add-item-cities"></datalist>
+          <span class="field__label">抵達時間</span>
+          <input id="add-item-end" name="end" type="time" step="300">
         </label>
       </div>
 
       <label class="field">
-        <span class="field__label">名稱</span>
+        <span class="field__label">預計停留</span>
+        <select id="add-item-duration" name="duration"></select>
+        <span class="field__hint" id="add-item-time-hint">結束時間＝抵達時間＋預計停留（沒填抵達時間就從出發時間算）</span>
+        <span class="time-calc" id="add-item-end-calc" hidden></span>
+      </label>
+
+      <label class="field">
+        <span class="field__label">城市</span>
+        <input id="add-item-city" name="city" list="add-item-cities" autocomplete="off" maxlength="100">
+        <datalist id="add-item-cities"></datalist>
+      </label>
+
+      <label class="field">
+        <span class="field__label" id="add-item-name-label">名稱</span>
         <input id="add-item-name" name="title" required maxlength="200" placeholder="例如：昌德宮" autocomplete="off">
       </label>
+
+      <fieldset class="field dialog__fieldset" id="add-item-meal-field" hidden>
+        <legend class="field__label">餐別</legend>
+        <div class="chip-list" id="add-item-meal"></div>
+      </fieldset>
 
       <label class="field" id="add-item-theme-field" hidden>
         <span class="field__label">當日主題</span>
@@ -249,7 +281,7 @@
 
       <label class="check-row">
         <input type="checkbox" id="add-item-must" name="must">
-        <span>★ 必去</span>
+        <span id="add-item-must-label">★ 必去</span>
       </label>
 
       <label class="field">
@@ -404,20 +436,6 @@
         <input id="add-flight-duration" maxlength="20" placeholder="例如：2h 25m" autocomplete="off">
       </label>
 
-      <fieldset class="dialog__fieldset field">
-        <legend class="field__label">託運行李</legend>
-        <div class="dialog__row">
-          <label class="baggage-input">
-            <input id="add-flight-baggage-kg" type="number" inputmode="decimal" min="0" max="100" step="0.5" placeholder="23" aria-label="每件重量（公斤）">
-            <span>kg</span>
-          </label>
-          <label class="baggage-input">
-            <span>×</span>
-            <input id="add-flight-baggage-pieces" type="number" inputmode="numeric" min="0" max="20" step="1" placeholder="1" aria-label="件數">
-            <span>件</span>
-          </label>
-        </div>
-      </fieldset>
 
       <fieldset class="dialog__fieldset field legs-field">
         <legend class="field__label">轉機航班</legend>
@@ -427,7 +445,7 @@
       </fieldset>
 
       <fieldset class="dialog__fieldset field passengers">
-        <legend class="field__label">旅客與座位</legend>
+        <legend class="field__label">旅客、座位與託運行李</legend>
         <ul class="passengers__list" id="add-flight-passengers"></ul>
         <button class="btn btn--ghost btn--small passengers__add" type="button" id="add-flight-passenger-add">＋ 新增旅客</button>
       </fieldset>
@@ -502,6 +520,15 @@
         <button class="btn" type="button" id="notion-export-go" hidden>匯出</button>
       </div>
     </div>
+  </dialog>
+
+  <!-- 放大看照片（點時間軸上的景點照片） -->
+  <dialog class="photo-viewer" id="photo-viewer" aria-label="放大的照片">
+    <button class="photo-viewer__close" type="button" id="photo-viewer-close" aria-label="關閉">✕</button>
+    <figure class="photo-viewer__figure">
+      <img id="photo-viewer-img" alt="">
+      <figcaption id="photo-viewer-caption"></figcaption>
+    </figure>
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>

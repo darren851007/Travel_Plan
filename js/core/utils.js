@@ -60,6 +60,34 @@ window.Trip = window.Trip || {};
       return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(text)}`;
     },
 
+    /* 時間計算（"HH:MM"，跨午夜會繞回 00:00）；用 Trip.utils.xxx 呼叫，拆出來單獨用也不會壞 */
+    toMinutes(t) {
+      return /^([01]\d|2[0-3]):[0-5]\d$/.test(t || "") ? Number(t.slice(0, 2)) * 60 + Number(t.slice(3)) : null;
+    },
+
+    addMinutes(t, minutes) {
+      const start = Trip.utils.toMinutes(t);
+      if (start === null || !Number.isFinite(minutes)) return "";
+      const m = (((start + minutes) % 1440) + 1440) % 1440;
+      return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+    },
+
+    /* 開始到結束幾分鐘（結束比開始早就當作隔天） */
+    minutesBetween(from, to) {
+      const a = Trip.utils.toMinutes(from);
+      const b = Trip.utils.toMinutes(to);
+      if (a === null || b === null) return null;
+      return (b - a + 1440) % 1440 || null;
+    },
+
+    /* 90 → 「1 小時 30 分」 */
+    formatMinutes(minutes) {
+      if (!minutes) return "";
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      return [h ? `${h} 小時` : "", m ? `${m} 分` : ""].filter(Boolean).join(" ");
+    },
+
     prefersReducedMotion() {
       return reducedMotion.matches;
     },

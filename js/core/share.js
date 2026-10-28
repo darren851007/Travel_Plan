@@ -33,7 +33,7 @@ Trip.share = {
       checklist: (dest.checklistIsFull
         ? dest.checklist
         : [...Trip.config.checklistBefore, ...dest.checklist, ...Trip.config.checklistAfter]
-      ).map(({ id, text, hint }) => ({ id, text, hint })),
+      ).map(({ id, text, hint, group }) => ({ id, text, hint, ...(group ? { group } : {}) })),
     };
     return { v: this.VERSION, from: String(from || "").trim().slice(0, 30), trip };
   },

@@ -3,6 +3,7 @@
    Trip.editDialog.open({ title, fields, values, submitLabel, onSubmit, onDelete })
    - fields：[{ name, label, type: text|date|time|textarea|photo, placeholder, required, options（建議清單）, half }]
      photo：照片欄位（js/core/photos.js），values 給目前照片網址；送出時的值是 { changed, blob }
+     choice：選一個的標籤（options: [{ value, label, tone }]），送出時的值是選到的 value
    - onSubmit(values)：回傳 Promise；丟出錯誤會顯示在對話框裡
    - onDelete()：有給才顯示「刪除」（按兩次才刪）
    ============================================================ */
@@ -42,6 +43,23 @@ Trip.editDialog = {
     this.body.innerHTML = fields
       .map((f) => {
         const id = `edit-field-${f.name}`;
+        if (f.type === "choice") {
+          return `
+<fieldset class="field dialog__fieldset">
+  <legend class="field__label">${esc(f.label)}</legend>
+  <div class="chip-list" id="${id}">
+    ${f.options
+      .map(
+        (o) => `
+    <label class="chip">
+      <input type="radio" name="${esc(f.name)}" value="${esc(o.value)}" ${String(values[f.name] ?? "") === String(o.value) ? "checked" : ""}>
+      <span class="pill ${o.tone ? `tone-${esc(o.tone)}` : ""}">${esc(o.label)}</span>
+    </label>`
+      )
+      .join("")}
+  </div>
+</fieldset>`;
+        }
         if (f.type === "photo") {
           return `
 <div class="field">
@@ -82,7 +100,14 @@ Trip.editDialog = {
   collect() {
     return Object.fromEntries(
       this.options.fields.map((f) =>
-        [f.name, f.type === "photo" ? this.photos[f.name].state() : this.form.elements[f.name].value.trim()]
+        [
+          f.name,
+          f.type === "photo"
+            ? this.photos[f.name].state()
+            : f.type === "choice"
+              ? this.form.querySelector(`input[name="${CSS.escape(f.name)}"]:checked`)?.value || ""
+              : this.form.elements[f.name].value.trim(),
+        ]
       )
     );
   },

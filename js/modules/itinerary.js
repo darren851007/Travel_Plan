@@ -26,6 +26,12 @@ Trip.itinerary = {
     /* 編輯這一天／編輯景點（js/modules/add-item.js） */
     this.panel.addEventListener("click", (e) => {
       if (e.target.closest("[data-edit-day]")) Trip.addItem.editDay(this.current);
+      /* 點景點照片：放大看 */
+      const zoom = e.target.closest("[data-zoom-title]");
+      if (zoom) this.zoom(zoom.querySelector("img").src, zoom.dataset.zoomTitle);
+      /* 時間軸最下方的「新增景點／新增餐廳」：加到正在看的這一天 */
+      const add = e.target.closest("[data-add-kind]");
+      if (add) Trip.addItem.open(add.dataset.addKind);
       const item = e.target.closest("[data-edit-item]");
       if (item) Trip.addItem.openEdit(item.dataset.editItem);
     });
@@ -98,25 +104,31 @@ Trip.itinerary = {
     const editable = this.editable();
     const dest = Trip.state.destination;
     const items = day.items
-      .map(
-        (item, i) => `
-<li class="tl-item${item.must ? " tl-item--must" : ""}" style="--i:${i}">
+      .map((item, i) => {
+        /* 餐廳：🍴、餐別標籤、「必吃」 */
+        const food = item.kind === "food";
+        const meal = food ? Trip.config.meals.find((m) => m.label === item.meal) : null;
+        const span = this.timeSpan(item);
+        return `
+<li class="tl-item${item.must ? " tl-item--must" : ""}${food ? " tl-item--food" : ""}" style="--i:${i}">
   <time class="tl-time">${esc(item.time)}</time>
   <div class="tl-card">
     <h4 class="tl-title">
-      ${esc(item.title)}
-      ${item.must ? '<span class="badge-must">★ 必去</span>' : ""}
+      ${food ? '<span class="tl-food-icon" aria-label="餐廳">🍴</span>' : ""}${esc(item.title)}
+      ${item.must ? `<span class="badge-must">★ ${food ? "必吃" : "必去"}</span>` : ""}
       ${editable && item.uid ? `<button class="btn-edit tl-edit" type="button" data-edit-item="${esc(item.uid)}" aria-label="編輯「${esc(item.title)}」">編輯</button>` : ""}
     </h4>
+    ${span ? `<p class="tl-span"><span class="tl-span__main">🕘 ${esc(span.main)}</span>${span.sub ? `<span class="tl-span__sub">${esc(span.sub)}</span>` : ""}</p>` : ""}
     ${item.note ? `<p class="tl-note">${esc(item.note)}</p>` : ""}
-    ${item.uid && Trip.photos.photoOf(dest, item.uid) ? `<figure class="tl-photo" data-photo-item="${esc(item.uid)}" hidden><img alt="${esc(item.title)}的照片" loading="lazy"></figure>` : ""}
+    ${item.uid && Trip.photos.photoOf(dest, item.uid) ? `<figure class="tl-photo" data-photo-item="${esc(item.uid)}" hidden><button class="tl-photo__open" type="button" data-zoom-title="${esc(item.title)}" aria-label="放大「${esc(item.title)}」的照片"><img alt="${esc(item.title)}的照片" loading="lazy"></button></figure>` : ""}
     <div class="tl-tags">
+      ${meal ? `<span class="pill tone-${esc(meal.tone)}">${esc(meal.label)}</span>` : food && item.meal ? `<span class="pill">${esc(item.meal)}</span>` : ""}
       ${(item.transport || []).map((k) => this.renderTag(k)).join("")}
       ${Trip.utils.mapUrl(item.map) ? `<a class="tl-map" href="${esc(Trip.utils.mapUrl(item.map))}" target="_blank" rel="noopener noreferrer" aria-label="在地圖上打開「${esc(item.title)}」">📍 地圖</a>` : ""}
     </div>
   </div>
-</li>`
-      )
+</li>`;
+      })
       .join("");
 
     return `
@@ -126,7 +138,17 @@ Trip.itinerary = {
   <p class="day-panel__theme">${esc(day.theme)}</p>
   ${editable ? '<button class="btn-edit" type="button" data-edit-day>編輯這一天</button>' : ""}
 </div>
-<ol class="timeline">${items}</ol>`;
+${editable ? `
+<div class="tl-add tl-add--top">
+  <button class="btn btn--small" type="button" data-add-kind="spot">＋ 新增景點</button>
+  <button class="btn btn--small" type="button" data-add-kind="food">＋ 新增餐廳</button>
+</div>` : ""}
+<ol class="timeline">${items}</ol>
+${editable ? `
+<div class="tl-add">
+  <button class="btn btn--ghost btn--small" type="button" data-add-kind="spot">＋ 新增景點</button>
+  <button class="btn btn--ghost btn--small" type="button" data-add-kind="food">＋ 新增餐廳</button>
+</div>` : ""}`;
   },
 
   /* 景點照片：網址要非同步讀（這台裝置的照片在 IndexedDB） */
@@ -159,6 +181,44 @@ Trip.itinerary = {
     /* 選到的日期要看得到：只捲日期列，不會讓整頁跳走 */
     this.reveal(activeTab, animate && scrollTab);
     this.updateArrows();
+  },
+
+  /* 「09:00 出發 → 11:30 結束」＋「抵達 09:30 · 停留 2 小時」；只有出發時間就不顯示
+     結束＝抵達（沒填就用出發）＋停留；舊資料只有 endTime（當時＝出發＋停留）也照樣顯示 */
+  timeSpan(item) {
+    const { addMinutes, minutesBetween, formatMinutes } = Trip.utils;
+    const minutes = item.duration || (item.arriveTime ? null : minutesBetween(item.time, item.endTime));
+    const end = item.endTime || (minutes ? addMinutes(item.arriveTime || item.time, minutes) : "");
+    if (!item.arriveTime && !minutes && !end) return null;
+    /* 第一行：出發 → 結束；第二行：抵達、停留 */
+    const main = [item.time ? `${item.time} 出發` : "", end ? `${end} 結束` : ""].filter(Boolean).join(" → ");
+    const sub = [
+      item.arriveTime && item.arriveTime !== item.time ? `抵達 ${item.arriveTime}` : "",
+      minutes ? `停留 ${formatMinutes(minutes)}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    return { main, sub };
+  },
+
+  /* ---------- 放大看照片 ---------- */
+
+  zoom(src, title) {
+    const viewer = document.getElementById("photo-viewer");
+    if (!viewer || !src) return;
+    if (!this.viewerReady) {
+      this.viewerReady = true;
+      document.getElementById("photo-viewer-close").addEventListener("click", () => viewer.close());
+      /* 點照片以外的地方（背景）也關閉 */
+      viewer.addEventListener("click", (e) => {
+        if (!e.target.closest("img")) viewer.close();
+      });
+    }
+    const img = document.getElementById("photo-viewer-img");
+    img.src = src;
+    img.alt = `${title}的照片`;
+    document.getElementById("photo-viewer-caption").textContent = title;
+    viewer.showModal();
   },
 
   /* ---------- 日期列捲動 ---------- */

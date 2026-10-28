@@ -67,15 +67,19 @@ Trip.flights = {
   <ul class="flight__passengers" aria-label="旅客與座位">
     ${passengers
       .map((p, k) => {
-        const body = `<span>${esc(p.name || "旅客")}</span><span class="seat">${esc(p.seat || "未選位")}</span>`;
+        const name = `<span class="passenger-name-text">${esc(p.name || "旅客")}</span><span class="seat">${esc(p.seat || "未選位")}</span>`;
         /* 可以編輯時，點旅客直接打開編輯、跳到這位旅客 */
-        return editable
-          ? `<li><button class="passenger-chip" type="button" data-edit-flight="${esc(f.type)}" data-passenger="${k}" aria-label="編輯旅客 ${esc(p.name || "旅客")}">${body}</button></li>`
-          : `<li>${body}</li>`;
+        const person = editable
+          ? `<button class="passenger-pill passenger-chip" type="button" data-edit-flight="${esc(f.type)}" data-passenger="${k}" aria-label="編輯旅客 ${esc(p.name || "旅客")}">${name}</button>`
+          : `<span class="passenger-pill">${name}</span>`;
+        /* 託運行李：獨立一個 chip 放在名字右邊 */
+        const bag = Trip.addFlight.baggageText(p, { compact: true });
+        /* 沒有行李也留一格，名字和行李才會各自對齊成一欄 */
+        return `<li>${person}${bag ? `<span class="bag-pill" aria-label="${esc(p.name || "旅客")}的託運行李 ${esc(Trip.addFlight.baggageText(p))}"><span aria-hidden="true">🧳</span> ${esc(bag)}</span>` : '<span class="bag-empty"></span>'}</li>`;
       })
       .join("")}
   </ul>` : ""}
-  ${Trip.addFlight.baggageText(f) ? `<p class="flight__baggage">🧳 託運行李：${esc(Trip.addFlight.baggageText(f))}</p>` : ""}
+  ${!Trip.addFlight.hasPersonalBaggage(f) && Trip.addFlight.baggageText(f) ? `<p class="flight__baggage">🧳 託運行李：${esc(Trip.addFlight.baggageText(f))}</p>` : ""}
   ${editable ? `<div class="flight__actions"><button class="btn-edit" type="button" data-edit-flight="${esc(f.type)}">編輯</button></div>` : ""}
 </article>`;
       })

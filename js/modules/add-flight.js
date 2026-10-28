@@ -34,7 +34,7 @@ Trip.addFlight = {
     const field = (name) => $(`add-flight-${name}`);
     this.f = Object.fromEntries(
       ["type", "number", "airline", "aircraft", "lookup", "from-code", "from-city", "from-time", "from-terminal",
-        "to-code", "to-city", "to-time", "to-terminal", "duration", "baggage-kg", "baggage-pieces", "passengers", "passenger-add",
+        "to-code", "to-city", "to-time", "to-terminal", "duration", "passengers", "passenger-add",
         "legs", "leg-add", "date", "msg", "submit"]
         .map((name) => [name, field(name)])
     );
@@ -170,19 +170,20 @@ Trip.addFlight = {
     await this.prepare([t]);
 
     this.fillSegment(this.mainSegment(), flight);
-    const bag = this.baggageOf(flight);
-    this.f["baggage-kg"].value = bag.kg ?? "";
-    this.f["baggage-pieces"].value = bag.pieces ?? "";
     (flight.connections || []).forEach((leg) => this.addLeg(leg));
-    /* 舊資料只有一個座位：放進第一位旅客 */
-    const passengers = flight.passengers?.length ? flight.passengers : flight.seat ? [{ name: "", seat: flight.seat }] : [];
-    passengers.forEach((p) => this.addPassenger(p));
+    /* 舊資料：只有一個座位就放進第一位旅客；整個航班的行李（舊版）帶給每位還沒填行李的旅客 */
+    const passengers = flight.passengers?.length ? flight.passengers : flight.seat || this.hasBaggage(this.baggageOf(flight)) ? [{ name: "", seat: flight.seat || "" }] : [];
+    const shared = this.baggageOf(flight);
+    passengers.forEach((p) => {
+      const own = this.baggageOf(p);
+      this.addPassenger({ ...p, ...(this.hasBaggage(own) ? {} : { baggageKg: shared.kg ?? "", baggagePieces: shared.pieces ?? "" }) });
+    });
     this.showDate();
     this.show(`編輯${type}航班`, "儲存");
     const row = passenger != null ? this.f.passengers.children[Number(passenger)] : null;
     if (row) {
       row.scrollIntoView({ block: "center" });
-      row.querySelector(".passenger-name").focus();
+      row.querySelector(".passenger-last").focus();
     }
   },
 
@@ -197,7 +198,7 @@ Trip.addFlight = {
 </label>`
       )
       .join("");
-    for (const name of [...this.SEGMENT_FIELDS, "baggage-kg", "baggage-pieces"]) {
+    for (const name of this.SEGMENT_FIELDS) {
       if (name === "from-code" || name === "from-city" || name === "to-code" || name === "to-city") continue;
       this.f[name].value = "";
     }
@@ -289,38 +290,49 @@ Trip.addFlight = {
     for (const name of this.SEGMENT_FIELDS) seg.get(name).value = value[name] || "";
   },
 
-  /* 託運行李：每件公斤數與件數；舊資料只有文字（例如「託運 23kg」）時從文字裡取出公斤數，件數算 1 */
+  /* 託運行李（每位旅客各自）：每件公斤數與件數
+     舊資料只有整個航班的文字（例如「託運 23kg」）時，從文字裡取出公斤數，件數算 1 */
+  hasBaggage(bag) {
+    return bag.kg !== null || bag.pieces !== null;
+  },
+
+  /* kg：使用者輸入的文字（例如「23」「23kg」「20+5 公斤」），原樣保留；pieces：件數（數字） */
   baggageOf(flight) {
     const num = (v) => (v === "" || v == null || !Number.isFinite(Number(v)) ? null : Number(v));
-    if (num(flight?.baggageKg) !== null || num(flight?.baggagePieces) !== null) {
-      return { kg: num(flight.baggageKg), pieces: num(flight.baggagePieces) };
+    const kgText = (v) => (v === "" || v == null ? null : String(v).trim() || null);
+    if (kgText(flight?.baggageKg) !== null || num(flight?.baggagePieces) !== null) {
+      return { kg: kgText(flight.baggageKg), pieces: num(flight.baggagePieces) };
     }
     const kg = String(flight?.baggage || "").match(/(\d+(?:\.\d+)?)\s*(?:kg|公斤)/i)?.[1];
-    return kg ? { kg: Number(kg), pieces: 1 } : { kg: null, pieces: null };
+    return kg ? { kg, pieces: 1 } : { kg: null, pieces: null };
   },
 
-  /* 「23 kg × 2 件」；沒填就空字串 */
-  baggageText(flight) {
+  /* 「23 kg × 2 件」：公斤數照使用者輸入的顯示（只有數字就補上「kg」，沒填寫「— kg」），沒填件數算 1 件 */
+  baggageText(flight, { compact = false } = {}) {
     const { kg, pieces } = this.baggageOf(flight);
     if (kg === null && pieces === null) return String(flight?.baggage || "");
-    return [kg !== null ? `${kg} kg` : "", pieces !== null ? `${pieces} 件` : ""].filter(Boolean).join(" × ");
+    const unit = compact ? "kg" : " kg";
+    const weight = kg === null ? `—${unit}` : /^\d+(?:[.,]\d+)?$/.test(kg) ? `${kg}${unit}` : kg;
+    /* compact：旅客 chip 用的格式「23kg × 2 件」（數字和 kg 連在一起，比較短） */
+    return `${weight} × ${pieces !== null ? pieces : 1} 件`;
   },
 
+  /* 有沒有任何旅客填了自己的行李 */
+  hasPersonalBaggage(flight) {
+    return (flight.passengers || []).some((p) => this.hasBaggage(this.baggageOf(p)));
+  },
+
+
   collect() {
-    const num = (name, max) => {
-      const v = this.f[name].value.trim();
-      const n = Number(v);
-      return v === "" || !Number.isFinite(n) ? "" : Math.min(Math.max(n, 0), max);
-    };
-    const baggageKg = num("baggage-kg", 100);
-    const baggagePieces = num("baggage-pieces", 20) === "" ? "" : Math.round(num("baggage-pieces", 20));
+    const passengers = this.collectPassengers();
     return {
       type: this.selectedType(),
       ...this.segmentData(this.mainSegment()),
-      baggageKg,
-      baggagePieces,
-      baggage: this.baggageText({ baggageKg, baggagePieces }),
-      passengers: this.collectPassengers(),
+      passengers,
+      /* 行李改成每位旅客各自填，整個航班的舊欄位清掉 */
+      baggageKg: "",
+      baggagePieces: "",
+      baggage: "",
       connections: this.legSegments().map((seg) => this.segmentData(seg)).filter((leg) => !this.isEmptyLeg(leg)),
     };
   },
@@ -582,16 +594,34 @@ Trip.addFlight = {
 
   MAX_PASSENGERS: 20,
 
-  addPassenger({ name = "", seat = "" } = {}) {
+  /* 姓名：照機票、護照的寫法「姓, 名」（Liu, Darren、王, 小明）；只填一個就不加逗號 */
+  fullName({ lastName = "", firstName = "" } = {}) {
+    const last = String(lastName).trim();
+    const first = String(firstName).trim();
+    return last && first ? `${last}, ${first}` : last || first;
+  },
+
+  /* 舊資料只有完整姓名：放進「名字」，使用者之後可以再拆 */
+  addPassenger({ name = "", lastName, firstName, seat = "", baggageKg = "", baggagePieces = "" } = {}) {
     const { esc } = Trip.utils;
     const n = this.f.passengers.children.length + 1;
+    const last = lastName ?? "";
+    const first = firstName ?? (lastName == null ? name : "");
     this.f.passengers.insertAdjacentHTML(
       "beforeend",
       `
 <li class="passenger-row">
-  <input class="passenger-name" maxlength="30" placeholder="旅客姓名" aria-label="第 ${n} 位旅客姓名" autocomplete="off" value="${esc(name)}">
-  <input class="passenger-seat" maxlength="10" placeholder="座位" aria-label="第 ${n} 位旅客座位" autocapitalize="characters" autocomplete="off" value="${esc(seat)}">
+  <input class="passenger-last" maxlength="30" placeholder="姓氏" aria-label="第 ${n} 位旅客姓氏" autocomplete="off" value="${esc(last)}">
+  <input class="passenger-first" maxlength="30" placeholder="名字" aria-label="第 ${n} 位旅客名字" autocomplete="off" value="${esc(first)}">
   <button class="passenger-remove" type="button" aria-label="移除這位旅客">✕</button>
+  <div class="passenger-bag">
+    <input class="passenger-seat" maxlength="10" placeholder="座位" aria-label="第 ${n} 位旅客座位" autocapitalize="characters" autocomplete="off" value="${esc(seat)}">
+    <span aria-hidden="true">🧳</span>
+    <input class="passenger-kg" maxlength="20" inputmode="decimal" autocomplete="off" placeholder="23" aria-label="第 ${n} 位旅客託運行李每件公斤數" value="${esc(baggageKg)}">
+    <span>kg ×</span>
+    <input class="passenger-pieces" type="number" inputmode="numeric" min="0" max="20" step="1" placeholder="1" aria-label="第 ${n} 位旅客託運行李件數" value="${esc(baggagePieces)}">
+    <span>件</span>
+  </div>
 </li>`
     );
     this.refreshPassengerAdd();
@@ -601,14 +631,31 @@ Trip.addFlight = {
     this.f["passenger-add"].hidden = this.f.passengers.children.length >= this.MAX_PASSENGERS;
   },
 
-  /* 姓名和座位都空白的列不存 */
+  /* 姓名、座位、行李都空白的列不存 */
   collectPassengers() {
+    const num = (input, max, round) => {
+      const v = input.value.trim();
+      const n = Number(v);
+      if (v === "" || !Number.isFinite(n)) return "";
+      const clamped = Math.min(Math.max(n, 0), max);
+      return round ? Math.round(clamped) : clamped;
+    };
     return [...this.f.passengers.children]
-      .map((li) => ({
-        name: li.querySelector(".passenger-name").value.trim(),
+      .map((li) => {
+        const lastName = li.querySelector(".passenger-last").value.trim();
+        const firstName = li.querySelector(".passenger-first").value.trim();
+        return {
+        lastName,
+        firstName,
+        /* name：組好的完整姓名（卡片、分享、Notion 都用這個） */
+        name: this.fullName({ lastName, firstName }),
         seat: li.querySelector(".passenger-seat").value.trim().toUpperCase(),
-      }))
-      .filter((p) => p.name || p.seat);
+        /* 公斤數照輸入的文字存（不限只能填數字） */
+        baggageKg: li.querySelector(".passenger-kg").value.trim().slice(0, 20),
+        baggagePieces: num(li.querySelector(".passenger-pieces"), 20, true),
+        };
+      })
+      .filter((p) => p.name || p.seat || p.baggageKg !== "" || p.baggagePieces !== "");
   },
 
   async save() {

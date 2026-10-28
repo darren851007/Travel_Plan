@@ -336,14 +336,25 @@ Trip.notionExport = {
         summary: `${trip.days.length} 天 ${trip.nights} 夜${trip.cities.length ? ` · ${trip.cities.join(" → ")}` : ""}`,
         cities: trip.cities,
         dayCount: trip.days.length,
+        meals: Trip.config.meals,
         transports: trip.transports,
-        checklist: (trip.checklist || []).map((c) => ({ text: c.text, hint: c.hint, checked: done.has(c.id) })),
+        checklist: (trip.checklist || []).map((c) => ({ text: c.text, hint: c.hint, checked: done.has(c.id), group: Trip.checklist.groupOf(c) })),
       },
       /* 有轉機時每一段一列，標題加上「第幾段」 */
       flights: trip.flights.flatMap(({ uid, connections = [], ...f }) => {
         const legs = [f, ...connections];
         return legs.map((leg, k) => ({
-          ...(k === 0 ? { ...f, baggage: Trip.addFlight.baggageText(f) } : { ...leg, type: f.type, date: f.date }),
+          ...(k === 0
+            ? {
+                ...f,
+                /* 旅客欄位帶上各自的行李；行李欄位只放舊資料整個航班的行李 */
+                passengers: (f.passengers || []).map((p) => {
+                  const bag = Trip.addFlight.baggageText(p);
+                  return { ...p, seat: [p.seat, bag && `🧳${bag}`].filter(Boolean).join(" ") };
+                }),
+                baggage: Trip.addFlight.hasPersonalBaggage(f) ? "" : Trip.addFlight.baggageText(f),
+              }
+            : { ...leg, type: f.type, date: f.date }),
           title: legs.length > 1 ? `${[leg.airline, leg.number].filter(Boolean).join(" ")}（第 ${k + 1} 段）` : "",
         }));
       }),
@@ -355,12 +366,17 @@ Trip.notionExport = {
             date: day.date,
             dayLabel: `Day ${i + 1}`,
             time: item.time,
+            arriveTime: item.arriveTime || "",
+            endTime: item.endTime || (item.duration ? Trip.utils.addMinutes(item.arriveTime || item.time, item.duration) : ""),
+            stay: Trip.utils.formatMinutes(item.duration || (item.arriveTime ? 0 : Trip.utils.minutesBetween(item.time, item.endTime)) || 0),
             city: day.city,
             transport: (item.transport || []).map(label),
             must: item.must,
             theme: day.theme,
             note: item.note,
             map: Trip.utils.mapUrl(item.map),
+            kind: item.kind === "food" ? "food" : "spot",
+            meal: item.meal || "",
           }))
       ),
       lodging: trip.lodgings.map((l) => ({

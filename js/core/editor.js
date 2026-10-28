@@ -91,6 +91,15 @@ Trip.mutate = {
     if (!day.theme && row.theme) day.theme = row.theme;
     const item = { uid: id, time: row.time, title: row.title, note: row.note, transport: row.transport, must: row.must };
     if (row.map) item.map = row.map;
+    /* 出發時間就是 time；抵達時間、停留分鐘、結束時間（抵達＋停留） */
+    if (row.arriveTime) item.arriveTime = row.arriveTime;
+    if (row.duration) item.duration = row.duration;
+    if (row.endTime) item.endTime = row.endTime;
+    /* 餐廳：kind＝food，加上餐別 */
+    if (row.kind === "food") {
+      item.kind = "food";
+      if (row.meal) item.meal = row.meal;
+    }
     if (row.photo) item.photo = row.photo;
     day.items.push(item);
     day.items.sort((a, b) => (a.time || "").localeCompare(b.time || ""));
@@ -158,6 +167,9 @@ Trip.mutate = {
     dest.checklist = dest.checklist || [];
     const index = dest.checklist.findIndex((c) => c.id === id);
     const item = { id, text: row.text, hint: row.hint };
+    /* 屬於哪張卡片（待辦事項 todo、行李準備 packing） */
+    const group = row.group || dest.checklist[index]?.group;
+    if (group) item.group = group;
     if (index >= 0) dest.checklist[index] = item;
     else dest.checklist.push(item);
   },

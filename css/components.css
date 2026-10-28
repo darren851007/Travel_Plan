@@ -1796,3 +1796,375 @@ a.btn.is-disabled {
 .tl-map:focus-visible {
   background: var(--butter);
 }
+
+/* ---------- 餐廳 ---------- */
+.tl-item--food .tl-card {
+  border-style: dashed;
+}
+
+.tl-food-icon {
+  margin-right: 4px;
+}
+
+/* ---------- 每日行程：上方總覽（按鈕、交通圖例、日期列）和下方當天細節分開 ---------- */
+.day-panel {
+  margin-top: 18px;
+  padding-top: 20px;
+  border-top: 2px dashed var(--dash);
+}
+
+/* 時間軸最下方的新增按鈕 */
+.tl-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+  padding-left: 68px;
+}
+
+@media (max-width: 360px) {
+  .tl-add {
+    padding-left: 0;
+  }
+}
+
+/* 新增景點／餐廳的按鈕列放在日期列下方；沒有按鈕也沒有提示時不佔空間 */
+.add-item-bar {
+  margin-top: 6px;
+  margin-bottom: 0;
+}
+
+.add-item-bar:not(:has(.btn:not([hidden]))):has(.field__hint:empty) {
+  display: none;
+}
+
+/* 每位旅客自己的託運行李：姓名、座位下一行 */
+.passenger-row {
+  padding-bottom: 8px;
+  border-bottom: 2px dashed var(--dash);
+}
+
+.passenger-bag {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.passenger-bag input {
+  width: 5em;
+  min-width: 0;
+  min-height: 40px;
+  padding: 6px 10px;
+  border: var(--line) solid var(--ink);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  font: inherit;
+  font-size: 16px;
+  color: inherit;
+}
+
+/* 旅客 chip 上的行李 */
+.flight__passengers .bag {
+  padding-right: 8px;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+/* 旅客一人一列：名字 chip ＋ 右邊獨立的託運行李 chip */
+.flight__passengers {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.flight__passengers li,
+.flight__passengers li:has(.passenger-chip) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.passenger-pill,
+.bag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.88rem;
+  color: inherit;
+}
+
+.passenger-pill {
+  padding: 3px 4px 3px 12px;
+  background: var(--paper);
+}
+
+.bag-pill {
+  padding: 3px 12px;
+  background: var(--butter);
+  white-space: nowrap;
+}
+
+/* 當天標題下面的新增按鈕（時間軸最上方） */
+.tl-add--top {
+  margin: 0 0 16px;
+  padding-left: 0;
+}
+
+.add-item-bar:has(.field__hint:empty) {
+  display: none;
+}
+
+/* 旅客列縮小：名字和行李固定同一列，名字太長就用「…」 */
+.flight__passengers {
+  align-items: stretch;
+}
+
+.flight__passengers li,
+.flight__passengers li:has(.passenger-chip) {
+  flex-wrap: nowrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.passenger-pill,
+.bag-pill {
+  min-height: 30px;
+  gap: 4px;
+  font-size: 0.8rem;
+}
+
+.passenger-pill {
+  min-width: 0;
+  padding: 2px 3px 2px 10px;
+}
+
+.passenger-name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flight__passengers .seat {
+  flex: none;
+  padding: 1px 6px;
+  font-size: 0.76rem;
+}
+
+.bag-pill {
+  flex: none;
+  padding: 2px 8px;
+}
+
+/* 航班卡片不要被旅客列撐寬：寬度跟著版面，名字自己縮 */
+.flight {
+  min-width: 0;
+}
+
+.flight__passengers,
+.flight__passengers li {
+  max-width: 100%;
+}
+
+.passenger-pill {
+  flex: 0 1 auto;
+  overflow: hidden;
+}
+
+/* 旅客清單排成兩欄：名字 chip 一欄、行李 chip 一欄，各自等寬、左右對齊 */
+.flight__passengers {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) max-content;
+  gap: 6px;
+  align-items: center;
+}
+
+.flight__passengers li,
+.flight__passengers li:has(.passenger-chip) {
+  display: contents;
+}
+
+.passenger-pill {
+  justify-self: stretch;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.bag-pill {
+  justify-self: stretch;
+  gap: 0;
+  white-space: pre;
+}
+
+.bag-empty {
+  min-height: 30px;
+}
+
+/* 行李 icon 和數字之間留一點空 */
+.bag-pill > span[aria-hidden="true"] {
+  margin-right: 4px;
+}
+
+/* 旅客列：第一行 姓氏｜名字｜✕；第二行 座位、行李 */
+.passenger-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+}
+
+.passenger-bag .passenger-seat {
+  width: 4.5em;
+  margin-right: 4px;
+  text-transform: uppercase;
+}
+
+/* 第二行（座位、行李）在手機上排得下：輸入框窄一點，「kg ×」不換行 */
+.passenger-bag {
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.passenger-bag input {
+  width: 3.6em;
+  padding: 6px 8px;
+}
+
+.passenger-bag .passenger-kg {
+  width: 4.6em;
+}
+
+/* ---------- 景點照片：點了放大 ---------- */
+.tl-photo__open {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+
+.photo-viewer {
+  width: 100vw;
+  max-width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  border: 0;
+  background: transparent;
+}
+
+.photo-viewer::backdrop {
+  background: rgba(20, 18, 22, 0.88);
+}
+
+.photo-viewer__figure {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  height: 100%;
+  margin: 0;
+}
+
+.photo-viewer__figure img {
+  max-width: 100%;
+  max-height: calc(100dvh - 120px);
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+}
+
+.photo-viewer__figure figcaption {
+  color: #fffcf6;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.photo-viewer__close {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top));
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  border: 2px solid #fffcf6;
+  border-radius: 999px;
+  background: rgba(20, 18, 22, 0.6);
+  font: inherit;
+  font-size: 1.1rem;
+  color: #fffcf6;
+  cursor: pointer;
+}
+
+/* 放大照片：整個畫面深色底，照片和說明一起置中 */
+.photo-viewer {
+  background: rgba(20, 18, 22, 0.94);
+}
+
+.photo-viewer[open] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-viewer__figure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: auto;
+  max-height: 100%;
+}
+
+/* 時間軸：起迄時間與停留 */
+.tl-span {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+/* 準備清單沒有項目時的提示 */
+.check-empty {
+  padding: 8px 0;
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+}
+
+/* 對話框裡算好的結束時間 */
+.time-calc {
+  display: inline-block;
+  justify-self: start;
+  margin-top: 4px;
+  padding: 4px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--butter);
+  font-size: 0.85rem;
+}
+
+.time-calc {
+  border-radius: var(--radius-sm);
+}
+
+.tl-span {
+  display: grid;
+  gap: 2px;
+}
+
+.tl-span__main {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.tl-span__sub {
+  padding-left: 1.4em;
+  font-size: 0.78rem;
+}
