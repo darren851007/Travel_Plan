@@ -1,13 +1,15 @@
 /* ============================================================
-   存在這台裝置的行程：沒有連結 Notion 時，用「新增行程」建立的旅程
+   存在這台裝置的行程：用「新增行程」建立的旅程
    只存在這個瀏覽器（localStorage），其他裝置看不到；清除網站資料會一起刪除
-   也記錄這台裝置刪除（隱藏）了哪些內建範例行程，可以再還原
+   （共編行程另外記在 js/core/collab.js）
    ============================================================ */
 window.Trip = window.Trip || {};
 
+/* 我的行程清單：這台裝置的行程＋加入的共編行程 */
+Trip.destinations = [];
+
 Trip.localTrips = {
   KEY: "trip-local-data",
-  HIDDEN_KEY: "trip-hidden-samples",
 
   load() {
     try {
@@ -28,50 +30,8 @@ Trip.localTrips = {
     }
   },
 
-  /* ---------- 內建範例：刪除＝在這台裝置隱藏 ---------- */
-
-  hiddenSamples() {
-    try {
-      const ids = JSON.parse(localStorage.getItem(this.HIDDEN_KEY));
-      return Array.isArray(ids) ? ids : [];
-    } catch {
-      return [];
-    }
-  },
-
-  isSample(dest) {
-    return Boolean(dest && !dest.local && !dest.notionPageId && Trip.samples?.some((s) => s.id === dest.id));
-  },
-
-  hideSample(id) {
-    try {
-      localStorage.setItem(this.HIDDEN_KEY, JSON.stringify([...new Set([...this.hiddenSamples(), id])]));
-    } catch {
-      return false;
-    }
-    Trip.destinations = Trip.destinations.filter((d) => d.id !== id);
-    return true;
-  },
-
-  /* 還原所有隱藏的範例，放回範例原本的位置（在自己建立的行程前面） */
-  restoreSamples() {
-    try {
-      localStorage.removeItem(this.HIDDEN_KEY);
-    } catch {
-      return false;
-    }
-    if (!Trip.dataSource?.syncedAt) {
-      const sampleIds = new Set(Trip.samples.map((s) => s.id));
-      Trip.destinations = [...Trip.samples, ...Trip.destinations.filter((d) => !sampleIds.has(d.id))];
-    }
-    return true;
-  },
-
-  /* 頁面載入時：隱藏刪除過的範例，再把這台裝置的行程接在後面 */
+  /* 頁面載入時：讀出這台裝置的行程 */
   apply() {
-    const hidden = new Set(this.hiddenSamples());
-    if (!Trip.dataSource?.syncedAt) Trip.destinations = Trip.destinations.filter((d) => !hidden.has(d.id));
-
     const stored = this.load();
     if (this.addUids(stored)) this.save(stored);
 

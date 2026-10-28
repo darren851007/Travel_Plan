@@ -42,10 +42,12 @@ Trip.rooms = {
 
   /* 共編房間裡存的內容：行程本身（含每列的 uid），不含這台裝置的標記 */
   docOf(dest) {
-    const { id, room, version, local, shared, sharedFrom, notionPageId, settingsId, checklistIsFull, order, ...doc } = dest;
+    const { id, room, version, local, shared, sharedFrom, checklistIsFull, order, ...doc } = dest;
     const copy = JSON.parse(JSON.stringify(doc));
     /* 這台裝置的照片不在房間裡，建立共編後另外上傳 */
-    if (!String(copy.cover || "").startsWith("room:")) delete copy.cover;
+    const inRoom = (ref) => String(ref || "").startsWith("room:");
+    if (!inRoom(copy.cover)) delete copy.cover;
+    for (const day of copy.days || []) for (const item of day.items || []) if (!inRoom(item.photo)) delete item.photo;
     if (!checklistIsFull) copy.checklist = [...Trip.config.checklistBefore, ...(copy.checklist || []), ...Trip.config.checklistAfter];
     Trip.localTrips.addUids([copy]);
     copy.flights = copy.flights || {};
@@ -94,7 +96,7 @@ Trip.collab = {
   pending: new Map(),
 
   available() {
-    return Boolean(Trip.notionPanel?.status?.collab);
+    return Boolean(Trip.api.status.collab);
   },
 
   myName() {
@@ -123,15 +125,17 @@ Trip.collab = {
   /* 把一趟行程變成共編：放進房間，加到我的清單；這台裝置的原行程換成共編版 */
   async create(dest) {
     const trip = Trip.rooms.docOf(dest);
-    const result = await Trip.notionPanel.request("POST", "rooms", { trip });
+    const result = await Trip.api.request("POST", "rooms", { trip });
     const live = Trip.rooms.receive(result.roomId, result.version, result.trip);
 
-    /* 原本有封面照片：上傳到房間（失敗就算了，之後可以再加） */
-    const cover = Trip.photos.coverOf(dest);
-    if (cover?.startsWith("dev:")) {
+    /* 原本有封面、景點照片：上傳到房間（失敗就算了，之後可以再加） */
+    const targets = ["cover", ...dest.days.flatMap((d) => d.items.map((i) => i.uid)).filter(Boolean)];
+    for (const target of targets) {
+      const ref = Trip.photos.photoOf(dest, target);
+      if (!ref?.startsWith("dev:")) continue;
       try {
-        const blob = await Trip.photos.tx("readonly", (s) => s.get(cover.slice(4)));
-        if (blob) await Trip.photos.setRoomCover(live, blob);
+        const blob = await Trip.photos.tx("readonly", (s) => s.get(ref.slice(4)));
+        if (blob) await Trip.photos.setRoomPhoto(live, target, blob);
       } catch {
         /* 照片沒上傳成功不影響共編 */
       }

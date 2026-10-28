@@ -1,10 +1,8 @@
 /* ============================================================
    編輯行程資料（景點、航班、住宿、清單、旅程設定、每天的主題與城市）
    - 存在這台裝置的行程：直接改這台裝置的資料
-   - Notion 同步的行程（需登入）：先寫進 Notion，成功後更新畫面與瀏覽器快取
    - 共編行程：送到共編房間（js/core/collab.js），其他人的畫面會即時更新
-   內建範例不能編輯
-   每一列用 uid 辨識：Notion 的是那一列的頁面 ID，這台裝置的是自己產生的 ID
+   每一列用 uid 辨識（這台裝置自己產生的 ID）
    ============================================================ */
 window.Trip = window.Trip || {};
 
@@ -15,75 +13,59 @@ Trip.editor = {
 
   canEdit(dest) {
     if (dest?.room) return Trip.collab.isLive(dest.room);
-    return Boolean(dest?.local || (dest?.notionPageId && Trip.notionPanel?.status?.loggedIn));
+    return Boolean(dest?.local);
   },
 
-  /* 舊的 Notion 快取沒有每一列的 ID，要重新同步一次才能編輯 */
-  needsResync(dest) {
-    if (!dest?.notionPageId) return false;
-    const rows = [...dest.days.flatMap((d) => d.items), ...(dest.lodgings || [])];
-    return rows.some((r) => !r.uid);
-  },
-
-  /* 執行一個編輯
-     table：itinerary / flights / lodging / checklist / settings
-     op：create / update / delete；mutate(行程物件, id, 整理後的資料) 負責改畫面上的資料 */
-  async run(dest, { table, op, uid, values, mutate }) {
-    if (dest.room) {
-      const id = uid || this.uid();
-      await Trip.collab.save(dest, (d) => mutate(d, id, values));
-      return { id, row: values };
-    }
-
-    if (dest.local) {
-      const id = uid || this.uid();
-      const saved = Trip.localTrips.update(dest.id, (d) => mutate(d, id, values));
-      if (!saved) throw new Error("這個瀏覽器不允許儲存資料（例如無痕模式）");
-      return { id, row: values };
-    }
-
-    const result = await Trip.notionPanel.request("POST", "notion/row", {
-      op, table, pageId: dest.notionPageId, rowId: uid, values, config: Trip.notionCache.config(),
-    });
-    const id = result.id || uid;
-    const row = result.row || values;
-    this.applyNotion(dest.id, (d) => mutate(d, id, row));
-    return { id, row };
-  },
-
-  /* 編輯一整天的主題與城市 */
-  async editDay(dest, dayIndex, { theme, city }) {
-    const mutate = (d) => {
-      const day = d.days[dayIndex];
-      day.theme = theme;
-      day.city = city;
-    };
+  /* 把修改套用到行程：共編送到房間，這台裝置的直接存 */
+  async save(dest, mutate) {
     if (dest.room) {
       await Trip.collab.save(dest, mutate);
       return;
     }
-    if (dest.local) {
-      if (!Trip.localTrips.update(dest.id, mutate)) throw new Error("這個瀏覽器不允許儲存資料（例如無痕模式）");
-      return;
-    }
-    const day = dest.days[dayIndex];
-    const sorted = [...day.items].sort((a, b) => (a.time || "").localeCompare(b.time || ""));
-    const result = await Trip.notionPanel.request("POST", "notion/day", { rowIds: sorted.map((i) => i.uid), theme, city });
-    this.applyNotion(dest.id, (d) => {
-      d.days[dayIndex].theme = result.theme;
-      d.days[dayIndex].city = result.city;
+    if (!dest.local || !Trip.localTrips.update(dest.id, mutate)) throw new Error("這個瀏覽器不允許儲存資料（例如無痕模式）");
+  },
+
+  /* 執行一個編輯
+     table：itinerary / flights / lodging / checklist / settings（說明用）
+     op：create / update / delete；mutate(行程物件, id, 資料) 負責改行程資料 */
+  async run(dest, { uid, values, mutate }) {
+    const id = uid || this.uid();
+    await this.save(dest, (d) => mutate(d, id, values));
+    return { id, row: values };
+  },
+
+  /* 編輯一整天的主題與城市 */
+  editDay(dest, dayIndex, { theme, city }) {
+    return this.save(dest, (d) => {
+      const day = d.days[dayIndex];
+      day.theme = theme;
+      day.city = city;
     });
   },
 
-  /* Notion 寫入成功後：更新畫面上的資料與瀏覽器快取（不用重新同步） */
-  applyNotion(destId, fn) {
-    fn(Trip.destinations.find((d) => d.id === destId));
-    const cache = Trip.notionCache.load();
-    const cached = cache?.destinations?.find((d) => d.id === destId);
-    if (cached) {
-      fn(cached);
-      Trip.notionCache.save(cache);
-    }
+  /* 改天數（改回程日）：多的天數在最後加「自由活動」，少的天數連同景點一起刪掉 */
+  async setDayCount(dest, count) {
+    if (count === dest.days.length) return;
+    const lastCity = dest.days[dest.days.length - 1]?.city || "";
+    const removed = dest.days.slice(count).flatMap((d) => d.items);
+    await this.save(dest, (d) => {
+      if (count < d.days.length) {
+        d.days = d.days.slice(0, count);
+        return;
+      }
+      let number = d.days.reduce((max, day, i) => Math.max(max, day.number || i + 1), 0);
+      while (d.days.length < count) {
+        number += 1;
+        d.days.push({
+          number,
+          city: lastCity,
+          theme: "",
+          items: [{ uid: this.uid(), time: "", title: "自由活動", note: "", transport: [], must: false }],
+        });
+      }
+    });
+    /* 這台裝置的照片一起刪掉（共編房間會自己清） */
+    if (dest.local) for (const item of removed) Trip.photos.removeLocal(item.photo);
   },
 
   /* 編輯後重畫行程，停在原本那一天 */
@@ -95,7 +77,7 @@ Trip.editor = {
   },
 };
 
-/* ---------- 改行程物件的方法（這台裝置與 Notion 共用） ---------- */
+/* ---------- 改行程物件的方法 ---------- */
 Trip.mutate = {
   /* 景點：依「第幾天」放進那一天，並依時間排序；回傳那一天的位置 */
   addItem(dest, id, row) {
@@ -107,7 +89,9 @@ Trip.mutate = {
     const day = dest.days[index];
     if (!day.city && row.city) day.city = row.city;
     if (!day.theme && row.theme) day.theme = row.theme;
-    day.items.push({ uid: id, time: row.time, title: row.title, note: row.note, transport: row.transport, must: row.must });
+    const item = { uid: id, time: row.time, title: row.title, note: row.note, transport: row.transport, must: row.must };
+    if (row.photo) item.photo = row.photo;
+    day.items.push(item);
     day.items.sort((a, b) => (a.time || "").localeCompare(b.time || ""));
     return index;
   },
@@ -133,8 +117,9 @@ Trip.mutate = {
     const at = this.findItem(dest, id);
     if (!at) return this.addItem(dest, id, row);
     const from = dest.days[at.d];
-    from.items.splice(at.i, 1);
-    const index = this.addItem(dest, id, { ...row, theme: row.theme ?? "" });
+    /* 照片另外存，改景點內容時保留原本的照片 */
+    const [old] = from.items.splice(at.i, 1);
+    const index = this.addItem(dest, id, { ...row, theme: row.theme ?? "", photo: old?.photo });
     if (!from.items.length && dest.days.length > 1) {
       const k = dest.days.indexOf(from);
       dest.days.splice(k, 1);

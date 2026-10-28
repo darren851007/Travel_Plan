@@ -3,7 +3,8 @@
    - 保存行程內容與版本號
    - 用 WebSocket 連著每個正在看的人；有人存檔就立刻推給其他人
    - 版本號不符（同時有人改過）時回傳最新內容，讓網頁重新套用自己的修改
-   - 封面照片：存在房間裡（photo:<id>），換照片時刪掉舊的，同一時間只留一張
+   - 照片（封面、每個景點）：存在房間裡（photo:<id>），行程裡用「room:<id>」指到它
+     換照片、刪掉景點時，沒人用的舊照片會一併刪除
    使用 Hibernation API：沒有訊息時不佔執行時間，免費額度內即可使用
    ============================================================ */
 import { DurableObject } from "cloudflare:workers";
@@ -23,7 +24,23 @@ function photoType(bytes) {
   return null;
 }
 
-const coverId = (trip) => String(trip?.cover || "").match(/^room:([A-Za-z0-9_-]{1,40})$/)?.[1] || null;
+const MAX_PHOTOS = 100;
+const ITEM_UID = /^[A-Za-z0-9_-]{1,64}$/;
+const photoId = (ref) => String(ref || "").match(/^room:([A-Za-z0-9_-]{1,40})$/)?.[1] || null;
+
+/* 行程裡用到的所有照片 */
+function photoRefs(trip) {
+  const ids = new Set();
+  const add = (ref) => {
+    const id = photoId(ref);
+    if (id) ids.add(id);
+  };
+  add(trip?.cover);
+  for (const day of Array.isArray(trip?.days) ? trip.days : []) {
+    for (const item of Array.isArray(day?.items) ? day.items : []) add(item?.photo);
+  }
+  return ids;
+}
 
 /* 只接受看起來像行程的資料 */
 function validTrip(trip) {
@@ -69,9 +86,10 @@ export class TripRoom extends DurableObject {
       });
     }
 
-    /* 換封面（POST 照片內容）或移除（DELETE） */
-    if (url.pathname.endsWith("/cover") && (request.method === "POST" || request.method === "DELETE")) {
-      return this.setCover(request, state);
+    /* 換照片（POST 照片內容）或移除（DELETE）：?target=cover（封面）或景點的 uid */
+    if (/\/(cover|photos)$/.test(url.pathname) && (request.method === "POST" || request.method === "DELETE")) {
+      const target = url.pathname.endsWith("/cover") ? "cover" : url.searchParams.get("target") || "";
+      return this.setPhoto(request, state, target);
     }
 
     /* 即時連線 */
@@ -89,10 +107,25 @@ export class TripRoom extends DurableObject {
     return Response.json(state);
   }
 
-  async setCover(request, state) {
-    let next = state.trip;
+  /* 換照片：照片存好後改行程裡的指向，版本號 +1 並通知所有人 */
+  async setPhoto(request, state, target) {
+    const next = structuredClone(state.trip);
+    let holder;
+    if (target === "cover") {
+      holder = next;
+    } else if (ITEM_UID.test(target)) {
+      holder = next.days.flatMap((d) => d.items || []).find((item) => item?.uid === target);
+      if (!holder) return Response.json({ error: "找不到這個景點，可能已經被刪除" }, { status: 404 });
+    } else {
+      return Response.json({ error: "不知道要放在哪裡" }, { status: 400 });
+    }
+    const key = target === "cover" ? "cover" : "photo";
+
     let newId = null;
     if (request.method === "POST") {
+      if (photoRefs(state.trip).size >= MAX_PHOTOS) {
+        return Response.json({ error: `一趟行程最多 ${MAX_PHOTOS} 張照片` }, { status: 413 });
+      }
       const length = Number(request.headers.get("Content-Length") || 0);
       if (length > MAX_PHOTO_BYTES) return Response.json({ error: "照片太大了" }, { status: 413 });
       const bytes = await request.arrayBuffer();
@@ -102,20 +135,25 @@ export class TripRoom extends DurableObject {
       if (!type) return Response.json({ error: "只接受 JPEG、PNG、WebP 照片" }, { status: 415 });
       newId = crypto.randomUUID().replace(/-/g, "");
       await this.ctx.storage.put(`photo:${newId}`, { type, data: bytes });
-      next = { ...state.trip, cover: `room:${newId}` };
+      holder[key] = `room:${newId}`;
     } else {
-      next = { ...state.trip };
-      delete next.cover;
+      delete holder[key];
     }
 
-    const oldId = coverId(state.trip);
-    if (oldId && oldId !== newId) await this.ctx.storage.delete(`photo:${oldId}`);
+    await this.removeUnused(state.trip, next);
 
     const by = decodeURIComponent(request.headers.get("X-Trip-Name") || "").trim().slice(0, 30) || "訪客";
     const saved = { version: state.version + 1, trip: next, updatedAt: new Date().toISOString() };
     await this.ctx.storage.put("state", saved);
     this.broadcast({ type: "state", ...saved, by });
     return Response.json(saved);
+  }
+
+  /* 舊行程用到、新行程沒用到的照片就刪掉 */
+  async removeUnused(before, after) {
+    const keep = photoRefs(after);
+    const unused = [...photoRefs(before)].filter((id) => !keep.has(id)).map((id) => `photo:${id}`);
+    if (unused.length) await this.ctx.storage.delete(unused);
   }
 
   send(ws, data) {
@@ -174,6 +212,7 @@ export class TripRoom extends DurableObject {
       const by = ws.deserializeAttachment()?.name || "訪客";
       const next = { version: state.version + 1, trip: msg.trip, updatedAt: new Date().toISOString() };
       await this.ctx.storage.put("state", next);
+      await this.removeUnused(state.trip, next.trip);
       this.send(ws, { type: "ack", requestId: msg.requestId, version: next.version, updatedAt: next.updatedAt });
       this.broadcast({ type: "state", ...next, by }, ws);
     }

@@ -8,7 +8,7 @@ window.Trip = window.Trip || {};
 Trip.share = {
   VERSION: 1,
 
-  /* 只留下顯示行程需要的資料（去掉 Notion ID、這台裝置的標記等） */
+  /* 只留下顯示行程需要的資料（去掉這台裝置的標記、照片等） */
   pack(dest, { includePrivate = false, from = "" } = {}) {
     const flight = (f) => {
       if (!f) return undefined;
@@ -26,10 +26,10 @@ Trip.share = {
       days: dest.days.map((d) => ({
         city: d.city,
         theme: d.theme,
-        items: d.items.map(({ uid, ...item }) => item),
+        items: d.items.map(({ uid, photo, ...item }) => item),
       })),
       lodgings: (dest.lodgings || []).map(({ uid, bookingNo, phone, ...l }) => (includePrivate ? { ...l, bookingNo, phone } : l)),
-      /* 範例行程的清單要補上共用項目 */
+      /* 舊資料的清單要補上共用項目 */
       checklist: (dest.checklistIsFull
         ? dest.checklist
         : [...Trip.config.checklistBefore, ...dest.checklist, ...Trip.config.checklistAfter]

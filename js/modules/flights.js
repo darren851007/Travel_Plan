@@ -14,7 +14,7 @@ Trip.flights = {
 
     const { esc, formatDate } = Trip.utils;
     const dest = Trip.state.destination;
-    const editable = Trip.editor.canEdit(dest) && !Trip.editor.needsResync(dest);
+    const editable = Trip.editor.canEdit(dest);
 
     list.innerHTML = trip.flights
       .map((f, i) => {

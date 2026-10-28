@@ -115,7 +115,7 @@ Trip.editDialog = {
       this.dialog.close();
     } catch (err) {
       this.setBusy(false);
-      this.message(err.status === 401 ? "Notion 登入已過期，請到「選擇行程」頁重新登入" : err.message, "error");
+      this.message(err.message, "error");
     }
   },
 
@@ -127,6 +127,6 @@ Trip.editDialog = {
   },
 
   message(text, type = "pending") {
-    Trip.notionPanel.renderMessage(this.msg, text, type);
+    Trip.api.renderMessage(this.msg, text, type);
   },
 };

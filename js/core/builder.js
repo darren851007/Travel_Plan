@@ -39,7 +39,7 @@ Trip.builder = {
 
       days,
 
-      /* Notion 同步與自己建立的行程，清單已包含共用項目 */
+      /* 自己建立的行程、共編行程，清單已包含共用項目 */
       checklist: dest.checklistIsFull
         ? dest.checklist
         : [...config.checklistBefore, ...dest.checklist, ...config.checklistAfter],

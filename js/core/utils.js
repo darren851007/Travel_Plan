@@ -35,6 +35,15 @@ window.Trip = window.Trip || {};
       return date.toISOString().slice(0, 10);
     },
 
+    /* "2026-12-18" → "2026-12-22" 相差 4 天（格式不對回傳 NaN） */
+    daysBetween(from, to) {
+      const utc = (iso) => {
+        const [y, m, d] = String(iso || "").split("-").map(Number);
+        return Date.UTC(y, m - 1, d);
+      };
+      return Math.round((utc(to) - utc(from)) / 86400000);
+    },
+
     prefersReducedMotion() {
       return reducedMotion.matches;
     },

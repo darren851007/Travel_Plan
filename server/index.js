@@ -1,6 +1,6 @@
 /* ============================================================
    Cloudflare Worker 進入點：網頁檔案由 Static Assets 提供，/api/* 由這裡處理
-   - Notion 登入與轉接：server/api/auth、server/api/notion
+   - 匯出至 Notion：server/api/auth（Notion 登入）、server/api/notion（選頁面、建立匯出頁面）
    - 共同編輯：server/api/rooms.js 與 server/room.js（Durable Object）
    - 查詢真實航班：server/api/flights.js（AeroDataBox）
    ============================================================ */
@@ -9,13 +9,7 @@ import * as login from "./api/auth/login.js";
 import * as callback from "./api/auth/callback.js";
 import * as logout from "./api/auth/logout.js";
 import * as pages from "./api/notion/pages.js";
-import * as countries from "./api/notion/countries.js";
-import * as country from "./api/notion/country.js";
-import * as createCountry from "./api/notion/create-country.js";
-import * as seed from "./api/notion/seed.js";
-import * as row from "./api/notion/row.js";
-import * as day from "./api/notion/day.js";
-import * as archiveCountry from "./api/notion/archive-country.js";
+import * as notionExport from "./api/notion/export.js";
 import { createRoom, roomRequest } from "./api/rooms.js";
 import { lookup as flightLookup } from "./api/flights.js";
 import { errorJson } from "../lib/http.js";
@@ -28,13 +22,8 @@ const routes = {
   "GET /api/auth/callback": callback.onRequestGet,
   "POST /api/auth/logout": logout.onRequestPost,
   "GET /api/notion/pages": pages.onRequestGet,
-  "POST /api/notion/countries": countries.onRequestPost,
-  "POST /api/notion/country": country.onRequestPost,
-  "POST /api/notion/create-country": createCountry.onRequestPost,
-  "POST /api/notion/seed": seed.onRequestPost,
-  "POST /api/notion/row": row.onRequestPost,
-  "POST /api/notion/day": day.onRequestPost,
-  "POST /api/notion/archive-country": archiveCountry.onRequestPost,
+  "POST /api/notion/export": notionExport.onRequestPost,
+  "POST /api/notion/export-rows": notionExport.onRowsPost,
   "POST /api/rooms": createRoom,
   "POST /api/flights/lookup": flightLookup,
 };
@@ -49,7 +38,7 @@ export default {
 
     const room = url.pathname.match(/^\/api\/rooms\/([^/]+)(\/ws)?$/);
     if (room && request.method === "GET") return roomRequest(context, room[1], Boolean(room[2]));
-    const cover = url.pathname.match(/^\/api\/rooms\/([^/]+)\/cover$/);
+    const cover = url.pathname.match(/^\/api\/rooms\/([^/]+)\/(cover|photos)$/);
     if (cover && (request.method === "POST" || request.method === "DELETE")) return roomRequest(context, cover[1], false);
     const photo = url.pathname.match(/^\/api\/rooms\/([^/]+)\/photos\/[^/]+$/);
     if (photo && request.method === "GET") return roomRequest(context, photo[1], false);

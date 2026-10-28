@@ -3,7 +3,8 @@
    POST /api/rooms { trip }        建立共編行程，回傳 roomId（知道連結的人都能編輯）
    GET  /api/rooms/:id             讀取目前內容
    GET  /api/rooms/:id/ws          WebSocket 即時連線（交給 server/room.js）
-   POST /api/rooms/:id/cover       換封面照片（內容是照片本身）；DELETE 移除
+   POST /api/rooms/:id/photos?target=cover|<景點 uid>  換照片（內容是照片本身）；DELETE 移除
+   POST /api/rooms/:id/cover       同上，target=cover
    GET  /api/rooms/:id/photos/:pid 讀封面照片
    ============================================================ */
 import { checkPost, errorJson, json, readBody } from "../../lib/http.js";
@@ -42,7 +43,7 @@ export async function roomRequest({ request, env }, roomId, ws) {
   if (!env.TRIP_ROOM) return errorJson("網站尚未開啟共同編輯", 503);
   if (!ROOM_ID.test(roomId)) return errorJson("找不到這個共編行程", 404);
 
-  /* 換封面：只接受本網站送來的照片 */
+  /* 換照片：只接受本網站送來的照片 */
   if (request.method === "POST" || request.method === "DELETE") {
     if (request.headers.get("Origin") !== new URL(request.url).origin) return errorJson("只接受本網站的請求", 403);
     if (request.method === "POST" && !/^image\/(jpeg|png|webp)$/.test(request.headers.get("Content-Type") || "")) {

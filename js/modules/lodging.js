@@ -17,7 +17,7 @@ Trip.lodging = {
 
   editable() {
     const dest = Trip.state.destination;
-    return Trip.editor.canEdit(dest) && !Trip.editor.needsResync(dest);
+    return Trip.editor.canEdit(dest);
   },
 
   /* 新增（沒有 uid）或編輯一間住宿 */

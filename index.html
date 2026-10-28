@@ -21,9 +21,7 @@
   <!-- 程式：資料 → 核心 → 功能模組 → 進入點（defer 依序執行，不需伺服器） -->
   <script defer src="js/data/config.js"></script>
   <script defer src="js/data/airlines.js"></script>
-  <script defer src="js/data/destinations/korea.js"></script>
-  <script defer src="js/data/destinations/japan.js"></script>
-  <script defer src="js/core/notion-cache.js"></script>
+  <script defer src="js/core/api.js"></script>
   <script defer src="js/core/local-trips.js"></script>
   <script defer src="js/core/editor.js"></script>
   <script defer src="js/core/share.js"></script>
@@ -42,7 +40,7 @@
   <script defer src="js/modules/itinerary.js"></script>
   <script defer src="js/modules/checklist.js"></script>
   <script defer src="js/modules/lodging.js"></script>
-  <script defer src="js/modules/notion-panel.js"></script>
+  <script defer src="js/modules/notion-export.js"></script>
   <script defer src="js/modules/add-item.js"></script>
   <script defer src="js/modules/add-flight.js"></script>
   <script defer src="js/modules/new-trip.js"></script>
@@ -78,20 +76,6 @@
           <p class="hero__sub" id="trip-count"></p>
         </div>
         <div class="trip-list" id="trip-list"></div>
-        <div class="trips__restore">
-          <button class="btn btn--ghost btn--small" type="button" id="restore-samples" hidden>還原範例行程</button>
-        </div>
-      </section>
-
-      <!-- Notion 連結（部署在 Cloudflare 時顯示） -->
-      <section id="notion" class="section container" hidden>
-        <div class="section-head">
-          <div>
-            <h2 class="section-title">Notion 連結</h2>
-            <p class="section-sub">用自己的 Notion 帳號登入，看你自己的旅行</p>
-          </div>
-        </div>
-        <div class="card notion" id="notion-panel"></div>
       </section>
     </div>
 
@@ -126,19 +110,19 @@
       <!-- 分享給好友；打開好友分享的連結時改成顯示「誰分享的」 -->
       <div class="trip-share" id="trip-share-bar">
         <button class="btn btn--small" type="button" id="trip-share">分享給好友</button>
+        <button class="btn btn--ghost btn--small" type="button" id="trip-export" hidden>匯出至 Notion</button>
       </div>
       <div class="shared-banner" id="shared-banner" hidden>
         <p><strong id="shared-from"></strong>分享的行程 · 唯讀</p>
         <button class="btn btn--small" type="button" id="shared-save">加入我的行程</button>
       </div>
 
-      <!-- 刪除行程：自己在這台裝置建立的、或登入後從 Notion 同步的 -->
+      <!-- 刪除行程：存在這台裝置的行程；共編行程是「離開共編」 -->
       <div class="trip-local" id="trip-local" hidden>
         <span class="pill tone-butter" id="trip-where"></span>
         <button class="btn btn--ghost btn--small" type="button" id="trip-edit" hidden>編輯行程資訊</button>
         <button class="btn btn--ghost btn--small" type="button" id="trip-delete">刪除這趟行程</button>
       </div>
-      <p class="field__hint trip-resync" id="trip-resync" hidden>這趟 Notion 行程要先在「選擇行程」頁按「從 Notion 同步」一次，才能在網頁上編輯</p>
     </section>
 
     <!-- ========== 航班 ========== -->
@@ -171,7 +155,7 @@
         </div>
       </div>
 
-      <!-- 新增景點（登入 Notion 並同步後才會出現按鈕） -->
+      <!-- 新增景點（可以編輯的行程才會出現按鈕） -->
       <div class="add-item-bar" id="add-item-bar" hidden>
         <button class="btn" type="button" id="add-item-open" hidden>＋ 新增景點</button>
         <p class="field__hint" id="add-item-hint"></p>
@@ -269,6 +253,11 @@
         <textarea id="add-item-note" name="note" rows="2" maxlength="2000" placeholder="例如：記得先預約"></textarea>
       </label>
 
+      <div class="field">
+        <span class="field__label" id="add-item-photo-label">照片（選填）</span>
+        <div id="add-item-photo"></div>
+      </div>
+
       <p class="notion__msg" id="add-item-msg" role="status" aria-live="polite"></p>
 
       <div class="btn-row dialog__actions">
@@ -341,6 +330,19 @@
   </dialog>
 
   <!-- 新增航班對話框 -->
+  <!-- 那天查不到這班航班時的提示（疊在新增航班對話框上面） -->
+  <dialog class="dialog dialog--small" id="flight-missing-dialog" aria-labelledby="flight-missing-title">
+    <div class="dialog__form">
+      <h3 class="dialog__title" id="flight-missing-title">這天查不到這班航班</h3>
+      <p id="flight-missing-text"></p>
+      <p class="field__hint">可能當天沒有這班航班，或航空公司還沒公布那天的班表。請確認航班號碼與日期。</p>
+      <div class="btn-row dialog__actions">
+        <button class="btn btn--ghost" type="button" id="flight-missing-manual">我自己填</button>
+        <button class="btn" type="button" id="flight-missing-nearest">帶入最近一班的資料</button>
+      </div>
+    </div>
+  </dialog>
+
   <dialog class="dialog" id="add-flight-dialog" aria-labelledby="add-flight-title">
     <form class="dialog__form" id="add-flight-form" novalidate>
       <h3 class="dialog__title" id="add-flight-title">新增航班</h3>
@@ -431,16 +433,22 @@
         <select id="new-trip-add-city" aria-label="加入城市"></select>
       </div>
 
-      <div class="dialog__row">
+      <div class="dialog__row dialog__row--dates">
         <label class="field">
           <span class="field__label">出發日</span>
           <input id="new-trip-date" name="date" type="date" required>
         </label>
         <label class="field">
-          <span class="field__label">標題</span>
-          <input id="new-trip-name" name="title" maxlength="100" autocomplete="off">
+          <span class="field__label">回程日</span>
+          <input id="new-trip-end" name="end" type="date" required>
         </label>
       </div>
+      <p class="field__hint" id="new-trip-end-hint">改回程日會調整最後一個城市的天數</p>
+
+      <label class="field">
+        <span class="field__label">標題</span>
+        <input id="new-trip-name" name="title" maxlength="100" autocomplete="off">
+      </label>
 
       <div class="field">
         <span class="field__label">封面照片（選填）</span>
@@ -452,9 +460,22 @@
 
       <div class="btn-row dialog__actions">
         <button class="btn btn--ghost" type="button" id="new-trip-cancel">取消</button>
-        <button class="btn" type="submit" id="new-trip-submit">建立到 Notion</button>
+        <button class="btn" type="submit" id="new-trip-submit">建立行程</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- 匯出至 Notion（js/modules/notion-export.js） -->
+  <dialog class="dialog" id="notion-export-dialog" aria-labelledby="notion-export-title">
+    <div class="dialog__form">
+      <h3 class="dialog__title" id="notion-export-title">匯出至 Notion</h3>
+      <div class="export-body" id="notion-export-body"></div>
+      <p class="notion__msg" id="notion-export-msg" role="status" aria-live="polite"></p>
+      <div class="btn-row dialog__actions">
+        <button class="btn btn--ghost" type="button" id="notion-export-close">關閉</button>
+        <button class="btn" type="button" id="notion-export-go" hidden>匯出</button>
+      </div>
+    </div>
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
@@ -462,7 +483,6 @@
   <footer class="footer">
     <div class="container">
       <p>祝旅途愉快 · Have a nice trip</p>
-      <p class="footer__source" id="data-source"></p>
       <p class="footer__source"><a href="privacy.html">隱私權與使用條款</a></p>
     </div>
   </footer>

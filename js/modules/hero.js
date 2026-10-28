@@ -15,7 +15,6 @@ Trip.hero = {
     this.deleteButton?.addEventListener("click", () => this.confirmDelete());
     this.editButton = document.getElementById("trip-edit");
     this.editButton?.addEventListener("click", () => this.editInfo());
-    this.resync = document.getElementById("trip-resync");
 
     /* 共編：改自己顯示給別人看的名字 */
     document.getElementById("presence-name")?.addEventListener("click", () => {
@@ -28,22 +27,49 @@ Trip.hero = {
     });
   },
 
-  /* 編輯行程資訊：標題、副標、出發日（存到這台裝置或 Notion 的「旅程設定」）、封面照片 */
+  MAX_DAYS: 60,
+
+  /* 編輯行程資訊：標題、副標、出發日、回程日（改天數）、封面照片 */
   async editInfo() {
     const dest = Trip.state.destination;
     const photoUrl = await Trip.photos.url(dest);
+    const trip = Trip.state.trip;
+    this.confirmedShrink = null;
     Trip.editDialog.open({
       title: "編輯行程資訊",
       fields: [
         { name: "title", label: "行程標題", required: true, placeholder: "例如：韓國冬日小旅行" },
         { name: "tagline", label: "副標", placeholder: "例如：首爾古宮、釜山海景" },
-        { name: "startDate", label: "出發日", type: "date", required: true, hint: "每天的日期、回程航班日期都會跟著改" },
+        { name: "startDate", label: "出發日", type: "date", required: true, half: true },
+        { name: "endDate", label: "回程日", type: "date", required: true, half: true },
         { name: "cover", label: dest.room ? "封面照片（一起編輯的人都看得到）" : "封面照片（存在這台裝置）", type: "photo" },
       ],
-      values: { title: dest.title, tagline: dest.tagline, startDate: dest.startDate || Trip.config.startDate, cover: photoUrl },
-      onSubmit: async ({ cover, ...values }) => {
+      values: {
+        title: dest.title,
+        tagline: dest.tagline,
+        startDate: dest.startDate || Trip.config.startDate,
+        endDate: trip.days[trip.days.length - 1].date,
+        cover: photoUrl,
+      },
+      onSubmit: async ({ cover, endDate, ...values }) => {
+        const count = Trip.utils.daysBetween(values.startDate, endDate) + 1;
+        if (!Number.isFinite(count) || count < 1) throw new Error("回程日不能早於出發日");
+        if (count > this.MAX_DAYS) throw new Error(`整趟旅程最多 ${this.MAX_DAYS} 天`);
+
+        /* 回程日提早會刪掉最後幾天：有景點的話先提醒，再按一次儲存才刪 */
+        const removed = dest.days.slice(count).flatMap((d) => d.items);
+        if (removed.length && this.confirmedShrink !== count) {
+          this.confirmedShrink = count;
+          const from = count + 1;
+          const to = dest.days.length;
+          throw new Error(`回程日提早會刪掉 Day ${from}${to > from ? `–${to}` : ""} 的 ${removed.length} 個景點；確定的話再按一次「儲存」`);
+        }
+
         const changed = values.title !== dest.title || values.tagline !== (dest.tagline || "") || values.startDate !== dest.startDate;
         if (changed) await this.saveSettings(dest, values);
+        if (count !== dest.days.length) {
+          await Trip.editor.setDayCount(Trip.state.destination, count, (text) => Trip.editDialog.message(text, "pending"));
+        }
         if (cover.changed) await Trip.photos.setCover(Trip.state.destination, cover.blob);
         Trip.editor.rerender();
         Trip.picker.render();
@@ -53,16 +79,7 @@ Trip.hero = {
   },
 
   saveSettings(dest, values) {
-    return Trip.editor.run(dest, {
-      table: "settings",
-      op: dest.settingsId ? "update" : "create",
-      uid: dest.settingsId,
-      values,
-      mutate: (d, id, row) => {
-        Trip.mutate.setSettings(d, row);
-        if (d.notionPageId) d.settingsId = id;
-      },
-    });
+    return Trip.editor.save(dest, (d) => Trip.mutate.setSettings(d, values));
   },
 
   /* 刪除行程（共用 js/modules/trip-delete.js）：按兩次才刪除 */
@@ -74,21 +91,19 @@ Trip.hero = {
   },
 
   deleteLabel(dest) {
-    if (dest?.room) return "離開共編";
-    return dest?.notionPageId ? "移到 Notion 垃圾桶" : "刪除這趟行程";
+    return dest?.room ? "離開共編" : "刪除這趟行程";
   },
 
-  /* 依行程來源顯示刪除按鈕（Notion 登入狀態是之後才知道的，所以面板也會呼叫） */
+  /* 依行程來源顯示編輯、刪除按鈕（共編連上後也會呼叫） */
   updateActions() {
     const dest = Trip.state.destination;
     if (!this.localBar || !dest) return;
-    const editable = Trip.editor.canEdit(dest) && !Trip.editor.needsResync(dest);
+    const editable = Trip.editor.canEdit(dest);
     this.editButton.hidden = !editable;
-    this.resync.hidden = !(Trip.editor.canEdit(dest) && Trip.editor.needsResync(dest));
     this.localBar.hidden = !(Trip.tripDelete.canDelete(dest) || editable);
     this.where.textContent = dest.room
       ? "共編行程"
-      : dest.local ? "存在這台裝置" : dest.notionPageId ? "存在你的 Notion" : "範例行程";
+      : dest.shared ? "好友分享（唯讀）" : "存在這台裝置";
     Trip.collab.render();
     this.deleteButton.disabled = false;
     Trip.tripDelete.reset(this.deleteButton, this.deleteLabel(dest));

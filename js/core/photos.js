@@ -1,9 +1,10 @@
 /* ============================================================
-   行程封面照片
+   行程照片：整趟行程的封面、每個景點的照片
    - 選照片後先在瀏覽器縮小、壓成 JPEG（最長邊 1600 像素），再儲存
-   - 存在這台裝置的行程、Notion 行程：照片存在這台裝置的瀏覽器（IndexedDB），不會上傳
+   - 存在這台裝置的行程：照片存在這台裝置的瀏覽器（IndexedDB），不會上傳
    - 共編行程：上傳到共編房間，一起編輯的人都看得到
-   行程裡的 cover：「dev:<id>」＝這台裝置的照片、「room:<id>」＝共編房間的照片
+   行程裡的 cover（封面）、景點的 photo：「dev:<id>」＝這台裝置的照片、「room:<id>」＝共編房間的照片
+   target：「cover」＝封面，其他＝景點的 uid
    分享連結（唯讀）不包含照片
    ============================================================ */
 window.Trip = window.Trip || {};
@@ -11,7 +12,6 @@ window.Trip = window.Trip || {};
 Trip.photos = {
   DB: "trip-photos",
   STORE: "photos",
-  NOTION_KEY: "trip-notion-covers",
   MAX_SIDE: 1600,
   MAX_BYTES: 1_400_000,
   MAX_INPUT: 30_000_000,
@@ -108,27 +108,29 @@ Trip.photos = {
     }
   },
 
-  /* ---------- 行程的封面 ---------- */
+  /* ---------- 行程的封面與景點照片 ---------- */
 
-  notionCovers() {
-    try {
-      return JSON.parse(localStorage.getItem(this.NOTION_KEY)) || {};
-    } catch {
-      return {};
+  findItem(dest, uid) {
+    for (const day of dest?.days || []) {
+      const item = (day.items || []).find((i) => i.uid === uid);
+      if (item) return item;
     }
+    return null;
   },
 
-  notionKey: (pageId) => String(pageId || "").replace(/-/g, ""),
+  photoOf(dest, target = "cover") {
+    if (!dest) return null;
+    const ref = target === "cover" ? dest.cover : this.findItem(dest, target)?.photo;
+    return typeof ref === "string" ? ref : null;
+  },
 
   coverOf(dest) {
-    if (!dest) return null;
-    if (dest.notionPageId) return this.notionCovers()[this.notionKey(dest.notionPageId)] || null;
-    return typeof dest.cover === "string" ? dest.cover : null;
+    return this.photoOf(dest, "cover");
   },
 
   /* 照片網址（沒有照片或讀不到時回傳 null） */
-  async url(dest) {
-    const cover = this.coverOf(dest);
+  async url(dest, target = "cover") {
+    const cover = this.photoOf(dest, target);
     if (!cover) return null;
     const room = cover.match(/^room:([A-Za-z0-9_-]{1,40})$/);
     if (room) return dest.room ? `/api/rooms/${encodeURIComponent(dest.room)}/photos/${room[1]}` : null;
@@ -146,25 +148,25 @@ Trip.photos = {
     }
   },
 
-  /* 換封面（blob＝null 表示移除）；完成後由呼叫的地方重畫畫面 */
-  async setCover(dest, blob) {
-    if (dest.room) return this.setRoomCover(dest, blob);
+  setCover(dest, blob) {
+    return this.setPhoto(dest, "cover", blob);
+  },
 
-    const old = this.coverOf(dest);
+  /* 換照片（blob＝null 表示移除）；完成後由呼叫的地方重畫畫面 */
+  async setPhoto(dest, target, blob) {
+    if (dest.room) return this.setRoomPhoto(dest, target, blob);
+
+    const old = this.photoOf(dest, target);
     const cover = blob ? await this.putLocal(blob) : null;
-    if (dest.notionPageId) {
-      const map = this.notionCovers();
-      const key = this.notionKey(dest.notionPageId);
-      if (cover) map[key] = cover;
-      else delete map[key];
-      try {
-        localStorage.setItem(this.NOTION_KEY, JSON.stringify(map));
-      } catch {
-        await this.removeLocal(cover);
-        throw new Error("這個瀏覽器不允許儲存資料（例如無痕模式）");
-      }
-    } else if (dest.local) {
-      if (!Trip.localTrips.update(dest.id, (d) => (d.cover = cover))) {
+    if (dest.local) {
+      const apply = (d) => {
+        const holder = target === "cover" ? d : this.findItem(d, target);
+        if (!holder) return;
+        if (target === "cover") holder.cover = cover;
+        else if (cover) holder.photo = cover;
+        else delete holder.photo;
+      };
+      if (!Trip.localTrips.update(dest.id, apply)) {
         await this.removeLocal(cover);
         throw new Error("這個瀏覽器不允許儲存資料（例如無痕模式）");
       }
@@ -175,9 +177,13 @@ Trip.photos = {
     if (old !== cover) await this.removeLocal(old);
   },
 
+  setRoomCover(dest, blob) {
+    return this.setRoomPhoto(dest, "cover", blob);
+  },
+
   /* 共編：上傳到房間，房間會通知所有人更新 */
-  async setRoomCover(dest, blob) {
-    const res = await fetch(`/api/rooms/${encodeURIComponent(dest.room)}/cover`, {
+  async setRoomPhoto(dest, target, blob) {
+    const res = await fetch(`/api/rooms/${encodeURIComponent(dest.room)}/photos?target=${encodeURIComponent(target)}`, {
       method: blob ? "POST" : "DELETE",
       credentials: "same-origin",
       headers: { "Content-Type": blob ? blob.type : "application/json", "X-Trip-Name": encodeURIComponent(Trip.collab.myName()) },
@@ -188,19 +194,26 @@ Trip.photos = {
     Trip.rooms.receive(dest.room, data.version, data.trip);
   },
 
-  /* 這台裝置的行程刪除時，一併刪掉照片 */
+  /* 這台裝置的行程刪除時，一併刪掉所有照片 */
   forget(dest) {
-    if (dest?.local) this.removeLocal(dest.cover);
+    if (!dest?.local) return;
+    this.removeLocal(dest.cover);
+    for (const day of dest.days || []) for (const item of day.items || []) this.removeLocal(item.photo);
+  },
+
+  /* 景點刪除後：這台裝置的照片一併刪掉（共編房間會自己清） */
+  dropItem(dest, uid, ref) {
+    this.removeLocal(ref);
   },
 
   /* ---------- 對話框裡的照片欄位 ---------- */
 
   /* 在 container 裡放一個照片欄位；回傳 { state() → { changed, blob } } */
-  field(container, currentUrl) {
+  field(container, currentUrl, alt = "封面照片預覽") {
     container.innerHTML = `
 <div class="photo-field">
   <div class="photo-field__preview">
-    <img alt="封面照片預覽" hidden>
+    <img alt="${Trip.utils.esc(alt)}" hidden>
     <span class="photo-field__empty">還沒有照片</span>
   </div>
   <div class="photo-field__actions">

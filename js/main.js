@@ -15,15 +15,6 @@ document.addEventListener("DOMContentLoaded", () => {
     Trip.sharePanel,
   ];
 
-  /* 頁尾顯示資料來源：Notion 同步或內建範例 */
-  const source = document.getElementById("data-source");
-  if (source) {
-    const synced = Trip.dataSource?.syncedAt;
-    source.textContent = synced
-      ? `資料來源：你的 Notion · 同步於 ${new Date(synced).toLocaleString("zh-TW", { dateStyle: "short", timeStyle: "short" })}`
-      : "資料來源：內建範例資料";
-  }
-
   Trip.art.mount();
   Trip.nav.init();
   views.forEach((view) => view.init());
@@ -35,7 +26,13 @@ document.addEventListener("DOMContentLoaded", () => {
   Trip.newTrip.init();
   Trip.picker.init();
   Trip.picker.render();
+  /* 匯出至 Notion 要在路由前處理「從 Notion 登入回來」的網址 */
+  Trip.notionExport.init();
   Trip.router.init();
 
-  Trip.notionPanel.init();
+  /* 知道網站開了哪些功能後（共編、航班查詢、Notion 匯出）重畫行程，按鈕才會出現 */
+  Trip.api.onStatus(() => {
+    if (Trip.state.destination && document.body.dataset.view === "trip") Trip.editor.rerender();
+  });
+  Trip.api.init();
 });

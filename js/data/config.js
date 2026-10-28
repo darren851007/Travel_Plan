@@ -1,9 +1,8 @@
 /* ============================================================
    共用設定 — 所有行程共用的交通標籤、準備清單、預設出發日
-   各國家的行程在 js/data/destinations/*.js（一個國家一趟旅程）
+   每趟行程是使用者自己建立的（js/core/local-trips.js），或加入的共編行程（js/core/collab.js）
    ============================================================ */
 window.Trip = window.Trip || {};
-Trip.destinations = Trip.destinations || [];
 
 Trip.config = {
   /* 行程沒填出發日時使用（台灣時間） */

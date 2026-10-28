@@ -637,27 +637,7 @@
   cursor: wait;
 }
 
-/* ---------- Notion 連結面板 ---------- */
-.notion__status {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.notion__dot {
-  flex: none;
-  width: 14px;
-  height: 14px;
-  margin-top: 6px;
-  border: 2px solid var(--ink);
-  border-radius: 50%;
-  background: var(--green);
-}
-
-.notion__status.is-error .notion__dot {
-  background: var(--rose);
-}
-
+/* ---------- 訊息框（各個對話框共用） ---------- */
 .notion__msg:empty {
   display: none;
 }
@@ -668,21 +648,12 @@
   border: 2px solid var(--ink);
   border-radius: var(--radius-sm);
   font-size: 0.9rem;
+  white-space: pre-line;
 }
 
 .notion__msg.is-pending { background: var(--sky-soft); }
 .notion__msg.is-ok      { background: var(--mint); }
 .notion__msg.is-error   { background: var(--rose); }
-
-.notion__msg .btn {
-  margin-top: 10px;
-}
-
-.notion__warnings {
-  margin-top: 6px;
-  padding-left: 1.2em;
-  list-style: disc;
-}
 
 /* ---------- 選擇行程（第一個畫面） ---------- */
 .trips {
@@ -807,18 +778,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-}
-
-.notion__countries {
-  display: grid;
-  gap: 6px;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 2px dashed var(--dash);
-}
-
-.notion__countries .legend {
-  margin-bottom: 0;
 }
 
 /* 連結看起來像按鈕時 */
@@ -1143,12 +1102,6 @@ a.btn.is-disabled {
   z-index: 1;
 }
 
-.trips__restore {
-  display: flex;
-  justify-content: center;
-  margin-top: 18px;
-}
-
 /* ---------- 新增航班 ---------- */
 .flight-empty {
   display: grid;
@@ -1230,11 +1183,6 @@ a.btn.is-disabled {
   background: var(--butter);
 }
 
-.trip-resync {
-  margin-top: 10px;
-  text-align: center;
-}
-
 .tl-edit {
   margin-left: auto;
 }
@@ -1271,7 +1219,9 @@ a.btn.is-disabled {
 /* ---------- 分享給好友 ---------- */
 .trip-share {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
+  gap: 10px;
   margin-top: 16px;
 }
 
@@ -1477,4 +1427,101 @@ a.btn.is-disabled {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+/* 時間軸上的景點照片 */
+.tl-photo {
+  margin: 10px 0 0;
+  overflow: hidden;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-sm);
+  background: var(--sky-soft);
+  aspect-ratio: 4 / 3;
+  width: 100%;
+  max-width: 360px;
+}
+
+.tl-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 日期欄位並排時不要撐出對話框（瀏覽器預設的最小寬度太寬） */
+.dialog input[type="date"] {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* 手機寬度：出發日、回程日上下排，日期才不會被截掉 */
+@media (max-width: 440px) {
+  .dialog__row--dates {
+    grid-template-columns: 1fr;
+  }
+
+  .edit-fields .field--half:has(input[type="date"]) {
+    grid-column: 1 / -1;
+  }
+}
+
+/* 小提示對話框（例如：這天查不到這班航班） */
+.dialog--small {
+  width: min(400px, calc(100vw - 32px));
+}
+
+.dialog--small .dialog__actions {
+  flex-wrap: wrap;
+}
+
+/* ---------- 匯出至 Notion ---------- */
+.export-body {
+  display: grid;
+  gap: 10px;
+}
+
+.export-steps {
+  margin: 0;
+  padding-left: 1.4em;
+  list-style: decimal;
+  display: grid;
+  gap: 4px;
+}
+
+.export-pages {
+  display: grid;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.export-page {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 8px 12px;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  cursor: pointer;
+}
+
+.export-page:has(input:checked) {
+  background: var(--butter);
+}
+
+.export-page span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
 }

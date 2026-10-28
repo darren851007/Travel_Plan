@@ -79,13 +79,14 @@ Trip.itinerary = {
 
   editable() {
     const dest = Trip.state.destination;
-    return Trip.editor.canEdit(dest) && !Trip.editor.needsResync(dest);
+    return Trip.editor.canEdit(dest);
   },
 
   renderDay(day, index) {
     const { esc, formatDate } = Trip.utils;
     const d = formatDate(day.date);
     const editable = this.editable();
+    const dest = Trip.state.destination;
     const items = day.items
       .map(
         (item, i) => `
@@ -98,6 +99,7 @@ Trip.itinerary = {
       ${editable && item.uid ? `<button class="btn-edit tl-edit" type="button" data-edit-item="${esc(item.uid)}" aria-label="編輯「${esc(item.title)}」">編輯</button>` : ""}
     </h4>
     ${item.note ? `<p class="tl-note">${esc(item.note)}</p>` : ""}
+    ${item.uid && Trip.photos.photoOf(dest, item.uid) ? `<figure class="tl-photo" data-photo-item="${esc(item.uid)}" hidden><img alt="${esc(item.title)}的照片" loading="lazy"></figure>` : ""}
     <div class="tl-tags">${(item.transport || []).map((k) => this.renderTag(k)).join("")}</div>
   </div>
 </li>`
@@ -114,6 +116,17 @@ Trip.itinerary = {
 <ol class="timeline">${items}</ol>`;
   },
 
+  /* 景點照片：網址要非同步讀（這台裝置的照片在 IndexedDB） */
+  async showPhotos() {
+    const dest = Trip.state.destination;
+    for (const figure of this.panel.querySelectorAll("[data-photo-item]")) {
+      const url = await Trip.photos.url(dest, figure.dataset.photoItem);
+      if (!url || !figure.isConnected) continue;
+      figure.querySelector("img").src = url;
+      figure.hidden = false;
+    }
+  },
+
   select(index, animate, scrollTab = true) {
     this.current = index;
 
@@ -126,6 +139,7 @@ Trip.itinerary = {
     const activeTab = this.tabs.children[index];
     this.panel.setAttribute("aria-labelledby", activeTab.id);
     this.panel.innerHTML = this.renderDay(this.trip.days[index], index);
+    this.showPhotos();
 
     if (animate) Trip.utils.replay(this.panel);
 

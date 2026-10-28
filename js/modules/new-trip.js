@@ -1,8 +1,7 @@
 /* ============================================================
    新增行程（整趟旅程）：選國家 → 城市與每個城市的天數 → 出發日 → 標題
    先填好每天的預設行程、每個城市的住宿；航班之後在行程頁按「＋ 新增航班」
-   - 已登入 Notion：建立到使用者自己的 Notion（國家頁面＋5 張表）
-   - 沒有 Notion（例如 GitHub Pages）：存在這台裝置的瀏覽器
+   行程存在這台裝置的瀏覽器；之後可以轉成共編，或匯出到 Notion
    可以選一張封面照片（js/core/photos.js，照片存在這台裝置）
    ============================================================ */
 window.Trip = window.Trip || {};
@@ -21,6 +20,8 @@ Trip.newTrip = {
       stops: $("new-trip-stops"),
       addCity: $("new-trip-add-city"),
       date: $("new-trip-date"),
+      end: $("new-trip-end"),
+      endHint: $("new-trip-end-hint"),
       title: $("new-trip-name"),
       summary: $("new-trip-summary"),
       msg: $("new-trip-msg"),
@@ -53,7 +54,9 @@ Trip.newTrip = {
       }
       this.renderStops();
     });
+    /* 出發日：天數不變，回程日跟著移動；回程日：調整最後一個城市的天數 */
     f.date.addEventListener("change", () => this.renderSummary());
+    f.end.addEventListener("change", () => this.applyEndDate());
     f.title.addEventListener("input", () => {
       this.titleEdited = true;
     });
@@ -73,19 +76,9 @@ Trip.newTrip = {
     });
   },
 
-  /* 已登入 Notion 並選好上層頁面時存到 Notion，否則存在這台裝置 */
-  usesNotion() {
-    const panel = Trip.notionPanel;
-    return Boolean(panel?.status?.loggedIn && panel.parent && panel.scan);
-  },
-
   refresh() {
     const card = document.getElementById("new-trip-open");
-    if (!card) return;
-    card.hidden = location.protocol === "file:";
-    card.querySelector(".trip-card__meta").textContent = this.usesNotion()
-      ? "選國家、城市與天數，建立到你的 Notion"
-      : "選國家、城市與天數，存在這台裝置";
+    if (card) card.hidden = location.protocol === "file:";
   },
 
   /* ---------- 對話框 ---------- */
@@ -105,23 +98,11 @@ Trip.newTrip = {
     }
 
     const { esc } = Trip.utils;
-    /* Notion 一個國家一個頁面；存在這台裝置則不限制 */
-    const existing = new Set(this.usesNotion() ? Trip.notionPanel.scan.countries.map((c) => c.title) : []);
     const countries = [...new Set(this.data.cities.map((c) => c.country))];
     f.country.innerHTML = countries
-      .map((name) => {
-        const flag = this.data.countries[name]?.flag || "";
-        const taken = existing.has(name);
-        return `<option value="${esc(name)}" ${taken ? "disabled" : ""}>${esc(flag)} ${esc(name)}${taken ? "（已有頁面）" : ""}</option>`;
-      })
+      .map((name) => `<option value="${esc(name)}">${esc(this.data.countries[name]?.flag || "")} ${esc(name)}</option>`)
       .join("");
-
-    const first = countries.find((c) => !existing.has(c));
-    if (!first) {
-      this.message("每個國家都已經有頁面了；要再規劃同一個國家，請到 Notion 修改那個國家頁面", "error");
-      f.submit.disabled = true;
-      return;
-    }
+    const first = countries[0];
 
     /* 出發日預設一個月後 */
     const today = Trip.utils.todayIso();
@@ -178,9 +159,34 @@ Trip.newTrip = {
     return this.stops.reduce((n, s) => n + s.days, 0);
   },
 
+  /* 依回程日算出總天數，多退少補在最後的城市（每個城市至少 1 天） */
+  applyEndDate() {
+    const f = this.fields;
+    const days = Trip.utils.daysBetween(f.date.value, f.end.value) + 1;
+    if (!this.stops.length || !Number.isFinite(days)) return this.renderSummary();
+    const min = this.stops.length;
+    const target = Math.min(Math.max(days, min), this.MAX_DAYS);
+    let diff = target - this.totalDays();
+    for (let i = this.stops.length - 1; diff !== 0 && i >= 0; i--) {
+      const stop = this.stops[i];
+      const next = Math.max(1, stop.days + diff);
+      diff -= next - stop.days;
+      stop.days = next;
+    }
+    f.endHint.textContent =
+      days < min ? `${this.stops.length} 個城市至少要 ${min} 天，回程日已調整` : days > this.MAX_DAYS ? `整趟旅程最多 ${this.MAX_DAYS} 天，回程日已調整` : "改回程日會調整最後一個城市的天數";
+    this.renderStops();
+  },
+
   renderSummary() {
     const f = this.fields;
     const total = this.totalDays();
+    /* 回程日永遠等於出發日 + 天數 − 1 */
+    if (f.date.value && total) {
+      f.end.value = Trip.utils.addDays(f.date.value, total - 1);
+      f.end.min = Trip.utils.addDays(f.date.value, Math.max(this.stops.length - 1, 0));
+      f.end.max = Trip.utils.addDays(f.date.value, this.MAX_DAYS - 1);
+    }
     if (!total || !f.date.value) {
       f.summary.textContent = total ? `共 ${total} 天 ${total - 1} 夜` : "請至少選一個城市";
       return;
@@ -198,9 +204,6 @@ Trip.newTrip = {
     if (!this.stops.length) return "請至少選一個城市";
     if (total > this.MAX_DAYS) return `整趟旅程最多 ${this.MAX_DAYS} 天`;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(this.fields.date.value)) return "請選擇出發日";
-    if (this.usesNotion() && Trip.notionPanel.scan.countries.some((c) => c.title === this.country)) {
-      return `「${this.country}」已經有頁面了`;
-    }
     return "";
   },
 
@@ -217,32 +220,7 @@ Trip.newTrip = {
       return;
     }
 
-    const dest = this.buildDest();
-    if (!this.usesNotion()) {
-      await this.saveLocal(dest, photo.blob);
-      return;
-    }
-
-    const panel = Trip.notionPanel;
-    const report = (...args) => panel.renderMessage(this.fields.msg, ...args);
-    this.setSaving(true);
-    try {
-      const { pageId } = await panel.createTrip(dest, panel.scan.countries.length + 1, report);
-      if (photo.blob) {
-        try {
-          await Trip.photos.setCover({ notionPageId: pageId }, photo.blob);
-        } catch {
-          /* 照片存不了不影響行程，之後可以在「編輯行程資訊」再加 */
-        }
-      }
-      /* 同步完成重新載入時，直接打開這趟新行程 */
-      history.replaceState(null, "", `${location.pathname}#/${encodeURIComponent(dest.id)}`);
-      await panel.sync(report);
-      this.setSaving(false);
-    } catch (err) {
-      this.setSaving(false);
-      this.message(`${err.message}（已建立的內容會保留在 Notion）`, "error");
-    }
+    await this.saveLocal(this.buildDest(), photo.blob);
   },
 
   /* 存在這台裝置：加入清單後直接打開這趟行程 */
@@ -270,7 +248,7 @@ Trip.newTrip = {
     Trip.addItem.toast(`已建立「${trip.title}」${note}`);
   },
 
-  /* 把表單內容組成和內建範例相同格式的行程（存到 Notion 或這台裝置） */
+  /* 把表單內容組成一趟行程（存在這台裝置） */
   buildDest() {
     const country = this.country;
     const meta = this.data.countries[country] || {};
@@ -320,10 +298,10 @@ Trip.newTrip = {
     const f = this.fields;
     f.submit.disabled = saving;
     f.cancel.disabled = saving;
-    f.submit.textContent = saving ? "建立中…" : this.usesNotion() ? "建立到 Notion" : "建立行程";
+    f.submit.textContent = saving ? "建立中…" : "建立行程";
   },
 
   message(text, type = "pending") {
-    Trip.notionPanel.renderMessage(this.fields.msg, text, type);
+    Trip.api.renderMessage(this.fields.msg, text, type);
   },
 };

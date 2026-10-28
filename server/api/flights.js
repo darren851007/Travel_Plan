@@ -1,9 +1,10 @@
 /* POST /api/flights/lookup — 用航班號碼與日期查真實航班（機型、航廈、起降時間）
-   同一航班與日期的結果快取 12 小時，省下查詢次數 */
+   同一航班與日期的結果快取 12 小時、查不到的快取 1 小時，省下查詢次數 */
 import { json, errorJson, checkPost, readBody } from "../../lib/http.js";
 import { cleanQuery, lookupFlight, LookupError } from "../../lib/flight-lookup.js";
 
 const CACHE_SECONDS = 12 * 60 * 60;
+const MISS_SECONDS = 60 * 60;
 
 export async function lookup({ request, env, ctx }) {
   if (!env.AERODATABOX_KEY) return errorJson("網站尚未設定航班查詢", 503);
@@ -12,15 +13,15 @@ export async function lookup({ request, env, ctx }) {
 
   try {
     const query = cleanQuery(await readBody(request));
-    const cacheKey = new Request(`https://flight-cache.internal/${query.number}/${query.date}/${query.from}`);
+    const cacheKey = new Request(`https://flight-cache.internal/v3/${query.number}/${query.nearest ? "nearest" : query.date}/${query.from}`);
     const cache = caches.default;
     const hit = await cache.match(cacheKey);
     if (hit) return json(await hit.json());
 
-    const flight = await lookupFlight(env.AERODATABOX_KEY, query);
+    const flight = await lookupFlight(env.AERODATABOX_KEY, query, env.AERODATABOX_GATEWAY);
     const result = { flight };
     ctx?.waitUntil?.(
-      cache.put(cacheKey, new Response(JSON.stringify(result), { headers: { "Cache-Control": `max-age=${CACHE_SECONDS}` } }))
+      cache.put(cacheKey, new Response(JSON.stringify(result), { headers: { "Cache-Control": `max-age=${flight ? CACHE_SECONDS : MISS_SECONDS}` } }))
     );
     return json(result);
   } catch (err) {

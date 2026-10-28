@@ -1,7 +1,6 @@
 /* ============================================================
    航班：一開始是空的，使用者自己新增；之後可以編輯、刪除
-   - 存在這台裝置的行程：存在這台裝置
-   - Notion 同步的行程（需登入）：寫進 Notion 的「航班」表
+   - 存在這台裝置的行程：存在這台裝置；共編行程：存到共編房間
    機場依行程城市預先帶入（去程：台灣 → 第一天的城市；回程：最後一天的城市 → 台灣）
    去程、回程各一筆；兩筆都有時「新增航班」自動隱藏（存檔都走 js/core/editor.js）
    網站有設定航班查詢時（Cloudflare），填好航班號碼會自動查真實航班，帶入機型、航廈、起降時間
@@ -79,6 +78,20 @@ Trip.addFlight = {
       if (button) this.openEdit(button.dataset.editFlight);
     });
 
+    /* 那天查不到這班航班的提示：帶入最近一班，或自己填 */
+    this.missing = $("flight-missing-dialog");
+    this.missingText = $("flight-missing-text");
+    this.missingNearest = $("flight-missing-nearest");
+    $("flight-missing-manual").addEventListener("click", () => {
+      this.missing.close();
+      this.lookupHint("請手動填寫航班資料");
+      this.f.number.focus();
+    });
+    this.missingNearest.addEventListener("click", () => {
+      this.missing.close();
+      this.lookup(this.missingNumber, { nearest: true });
+    });
+
     this.form.addEventListener("submit", (e) => {
       e.preventDefault();
       this.save();
@@ -93,10 +106,10 @@ Trip.addFlight = {
     this.refresh();
   },
 
-  /* 可以編輯：自己在這台裝置建立的行程，或已登入 Notion 的 Notion 行程 */
+  /* 可以編輯：自己在這台裝置建立的行程，或已連上的共編行程 */
   editable() {
     const dest = Trip.state.destination;
-    return Trip.editor.canEdit(dest) && !Trip.editor.needsResync(dest);
+    return Trip.editor.canEdit(dest);
   },
 
   missingTypes() {
@@ -109,11 +122,7 @@ Trip.addFlight = {
     const editable = this.editable();
     this.openButton.hidden = !editable || !this.missingTypes().length;
     this.empty.hidden = Boolean(this.trip.flights.length);
-    this.hint.textContent = editable
-      ? "按「＋ 新增航班」填入去程與回程"
-      : Trip.state.destination?.notionPageId
-        ? "用 Notion 登入後可以新增航班，或直接在 Notion 的「航班」表填寫"
-        : "";
+    this.hint.textContent = editable ? "按「＋ 新增航班」填入去程與回程" : "";
   },
 
   /* ---------- 對話框 ---------- */
@@ -244,7 +253,7 @@ Trip.addFlight = {
   /* ---------- 查詢真實航班 ---------- */
 
   lookupAvailable() {
-    return Boolean(Trip.notionPanel?.status?.flightLookup);
+    return Boolean(Trip.api.status.flightLookup);
   },
 
   flightDate() {
@@ -264,24 +273,46 @@ Trip.addFlight = {
     this.lookupTimer = setTimeout(() => this.lookup(number), delay);
   },
 
-  async lookup(number) {
+  /* 用航班號碼與航班日期查詢；nearest＝true 時查最近一班（使用者在提示裡選擇的） */
+  async lookup(number, { nearest = false } = {}) {
     const seq = ++this.lookupSeq;
     const date = this.flightDate();
-    this.lookupHint(`查詢 ${number}（${date}）的航班資料…`);
+    this.lookupHint(nearest ? `查詢 ${number} 最近一班的資料…` : `查詢 ${number}（${date}）的航班資料…`);
     try {
-      const { flight } = await Trip.notionPanel.request("POST", "flights/lookup", {
-        number, date, from: this.selectedType() === "去程" ? this.HOME.code : this.f["from-code"].value.trim(),
+      const { flight } = await Trip.api.request("POST", "flights/lookup", {
+        number, date, nearest, from: this.selectedType() === "去程" ? this.HOME.code : this.f["from-code"].value.trim(),
       });
-      if (seq !== this.lookupSeq) return;
+      if (seq !== this.lookupSeq || !this.dialog.open) return;
       if (!flight) {
-        this.lookupHint(`查不到 ${number} 在 ${date} 的航班，請手動填寫（日期太遠的航班可能還沒公布）`);
+        if (nearest) {
+          this.lookupHint(`查不到 ${number} 這個航班，請確認航班號碼，或手動填寫`);
+          return;
+        }
+        this.lookupHint(`${date} 查不到 ${number}`);
+        this.showMissing(number, date);
         return;
       }
       const filled = this.applyLookup(flight);
-      this.lookupHint(filled.length ? `已自動帶入：${filled.join("、")}（可以再修改）` : "查到航班，但沒有新的資料可以帶入");
+      /* 最近一班的資料：起降時間可能和那天不同 */
+      const note = flight.nearest
+        ? `已帶入最近一班（${flight.date || "近期"}）的資料，起降時間可能和 ${date} 不同，請再確認。`
+        : "";
+      this.lookupHint(
+        filled.length ? `${note}已自動帶入：${filled.join("、")}（可以再修改）` : `${note}查到航班，但沒有新的資料可以帶入`
+      );
     } catch (err) {
       if (seq === this.lookupSeq) this.lookupHint(err.message || "航班查詢失敗，請手動填寫");
     }
+  },
+
+  /* 那天查不到：跳出提示（疊在新增航班對話框上） */
+  showMissing(number, date) {
+    const { formatDate } = Trip.utils;
+    const d = formatDate(date);
+    this.missingNumber = number;
+    this.missingText.textContent = `${number} 在 ${d.md}（${d.weekday}）查不到航班。`;
+    this.missing.showModal();
+    this.missingNearest.focus();
   },
 
   /* 把查到的資料填進還沒被使用者改過的欄位，回傳填了哪些 */
@@ -388,12 +419,12 @@ Trip.addFlight = {
 
   async run(action) {
     this.setSaving(true);
-    this.message(Trip.state.destination.notionPageId ? "儲存到 Notion…" : "儲存中…", "pending");
+    this.message("儲存中…", "pending");
     try {
       await action();
     } catch (err) {
       this.setSaving(false);
-      this.message(err.status === 401 ? "Notion 登入已過期，請到「選擇行程」頁重新登入" : err.message, "error");
+      this.message(err.message, "error");
     }
   },
 
@@ -413,6 +444,6 @@ Trip.addFlight = {
   },
 
   message(text, type = "pending") {
-    Trip.notionPanel.renderMessage(this.f.msg, text, type);
+    Trip.api.renderMessage(this.f.msg, text, type);
   },
 };

@@ -32,7 +32,7 @@ Trip.checklist = {
 
   editable() {
     const dest = Trip.state.destination;
-    return Trip.editor.canEdit(dest) && !Trip.editor.needsResync(dest);
+    return Trip.editor.canEdit(dest);
   },
 
   openEdit(id) {

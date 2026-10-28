@@ -83,9 +83,7 @@ Trip.sharePanel = {
     if (ready) this.collabLink.value = Trip.collab.link(dest.room);
     this.collabHint.textContent = ready
       ? "這趟已經是共編行程，把連結傳給要一起編輯的人。"
-      : dest?.notionPageId
-        ? "建立後會複製一份到共編（之後的修改不會同步回 Notion）。拿到連結的人都能即時一起修改，不用登入。"
-        : "建立共編連結後，拿到連結的人都能即時一起修改這趟行程（不用登入）。";
+      : "建立共編連結後，拿到連結的人都能即時一起修改這趟行程（不用登入）。";
   },
 
   async createRoom() {
@@ -171,6 +169,6 @@ Trip.sharePanel = {
   },
 
   message(text, type = "pending") {
-    Trip.notionPanel.renderMessage(this.msg, text, type);
+    Trip.api.renderMessage(this.msg, text, type);
   },
 };

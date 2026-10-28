@@ -7,12 +7,6 @@ Trip.picker = {
   init() {
     this.list = document.getElementById("trip-list");
     this.count = document.getElementById("trip-count");
-    this.restore = document.getElementById("restore-samples");
-    this.restore?.addEventListener("click", () => {
-      if (!Trip.localTrips.restoreSamples()) return;
-      this.render();
-      Trip.addItem.toast("已還原範例行程");
-    });
 
     /* 卡片上的刪除按鈕：按兩次才刪除（js/modules/trip-delete.js） */
     this.list?.addEventListener("click", (e) => {
@@ -29,8 +23,6 @@ Trip.picker = {
     const trips = Trip.destinations.map((d) => Trip.builder.build(d));
 
     if (this.count) this.count.textContent = trips.length ? `共 ${trips.length} 趟旅程` : "";
-    /* 這台裝置刪除過範例時，顯示「還原範例行程」 */
-    if (this.restore) this.restore.hidden = Boolean(Trip.dataSource?.syncedAt) || !Trip.localTrips.hiddenSamples().length;
     if (!trips.length) {
       this.list.innerHTML = '<p class="trips__empty">還沒有行程，按「＋ 新增行程」建立第一趟旅行。</p>' + this.newTripCard(0);
       this.updateActions();
@@ -80,7 +72,7 @@ Trip.picker = {
     }
   },
 
-  /* 只有能刪除的行程顯示刪除鈕（Notion 登入狀態是之後才知道的，面板也會呼叫） */
+  /* 只有能刪除的行程顯示刪除鈕 */
   updateActions() {
     this.list?.querySelectorAll(".trip-card__delete").forEach((button) => {
       const dest = Trip.destinations.find((d) => d.id === button.dataset.id);

@@ -1,8 +1,8 @@
 /* ============================================================
    景點對話框：新增、編輯、刪除某一天的行程；「編輯這一天」改主題與城市
    - 自己在這台裝置建立的行程：存在這台裝置
-   - Notion 同步的行程（需登入）：寫進使用者自己的 Notion「行程」表
-   內建範例不能修改（存檔都走 js/core/editor.js）
+   - 共編行程：存到共編房間（存檔都走 js/core/editor.js）
+   每個景點可以放一張照片（js/core/photos.js），顯示在時間軸上
    ============================================================ */
 window.Trip = window.Trip || {};
 
@@ -31,6 +31,8 @@ Trip.addItem = {
       msg: $("add-item-msg"),
       submit: $("add-item-submit"),
       remove: $("add-item-delete"),
+      photo: $("add-item-photo"),
+      photoLabel: $("add-item-photo-label"),
     };
 
     this.openButton.addEventListener("click", () => this.open());
@@ -58,28 +60,21 @@ Trip.addItem = {
 
   editable() {
     const dest = Trip.state.destination;
-    return Trip.editor.canEdit(dest) && !Trip.editor.needsResync(dest);
+    return Trip.editor.canEdit(dest);
   },
 
-  /* 依登入狀態與資料來源，顯示「新增景點」按鈕或提示 */
+  /* 依資料來源，顯示「新增景點」按鈕或提示 */
   refresh() {
     if (!this.bar) return;
     const dest = Trip.state.destination;
-    const status = Trip.notionPanel?.status;
     const canAdd = this.editable();
-
-    /* 範例行程：有 Notion 時提示登入；沒有 Notion（GitHub Pages）時提示自己新增一趟 */
     const hint = canAdd
       ? ""
       : dest?.shared
         ? "這是好友分享的行程；按上方「加入我的行程」後就能編輯"
-        : Trip.editor.canEdit(dest)
-        ? "這趟 Notion 行程要先按「從 Notion 同步」一次，才能在網頁上編輯"
-        : status?.configured
-          ? status.loggedIn
-            ? "到「選擇行程」頁按「從 Notion 同步」後，就能在這裡新增景點"
-            : "用 Notion 登入並同步你的行程後，就能在這裡新增景點"
-          : "這是範例行程；到「選擇行程」頁按「＋ 新增行程」建立自己的行程，就能新增景點";
+        : dest?.room
+          ? "連上共編後就能編輯"
+          : "";
     this.bar.hidden = false;
     this.openButton.hidden = !canAdd;
     this.hint.textContent = hint;
@@ -95,11 +90,19 @@ Trip.addItem = {
     const current = days[Trip.itinerary.current || 0];
     this.fields.day.value = String(current?.number || (Trip.itinerary.current || 0) + 1);
     this.applyDayDefaults();
+    this.preparePhoto(null);
     this.show("新增景點", "新增");
   },
 
+  /* 照片欄位：共編行程大家都看得到，其他存在這台裝置 */
+  preparePhoto(url) {
+    const dest = Trip.state.destination;
+    this.fields.photoLabel.textContent = dest.room ? "照片（選填，一起編輯的人都看得到）" : "照片（選填，存在這台裝置）";
+    this.photo = Trip.photos.field(this.fields.photo, url, "景點照片預覽");
+  },
+
   /* 編輯：帶入這個景點的資料 */
-  openEdit(uid) {
+  async openEdit(uid) {
     const dest = Trip.state.destination;
     const at = Trip.mutate.findItem(dest, uid);
     if (!at) return;
@@ -117,6 +120,7 @@ Trip.addItem = {
     f.must.checked = Boolean(item.must);
     for (const box of f.transport.querySelectorAll("input")) box.checked = (item.transport || []).includes(box.value);
     f.themeField.hidden = true;
+    this.preparePhoto(await Trip.photos.url(dest, uid));
     this.show("編輯景點", "儲存");
   },
 
@@ -205,11 +209,17 @@ Trip.addItem = {
       return;
     }
 
+    const photo = this.photo.state();
+    if (photo.busy) {
+      this.message("照片還在處理中，請稍等一下", "pending");
+      return;
+    }
+
     const dest = Trip.state.destination;
     let dayIndex = 0;
     const editing = this.editing;
     await this.run(async () => {
-      await Trip.editor.run(dest, {
+      const { id } = await Trip.editor.run(dest, {
         table: "itinerary",
         op: editing ? "update" : "create",
         uid: editing?.uid,
@@ -218,7 +228,17 @@ Trip.addItem = {
           dayIndex = editing ? Trip.mutate.updateItem(d, id, row) : Trip.mutate.addItem(d, id, row);
         },
       });
-      this.finish(dayIndex, editing ? `已更新「${item.title}」` : `已新增「${item.title}」`);
+
+      /* 景點存好後再存照片；照片失敗不影響景點 */
+      let note = "";
+      if (photo.changed) {
+        try {
+          await Trip.photos.setPhoto(Trip.state.destination, id, photo.blob);
+        } catch (err) {
+          note = `（照片沒有存成功：${err.message}）`;
+        }
+      }
+      this.finish(dayIndex, `${editing ? `已更新「${item.title}」` : `已新增「${item.title}」`}${note}`);
     });
   },
 
@@ -228,6 +248,7 @@ Trip.addItem = {
     const dest = Trip.state.destination;
     const { uid, dayIndex } = this.editing;
     const title = f.title.value.trim();
+    const photoRef = Trip.photos.photoOf(dest, uid);
     await this.run(async () => {
       await Trip.editor.run(dest, {
         table: "itinerary",
@@ -235,6 +256,7 @@ Trip.addItem = {
         uid,
         mutate: (d, id) => Trip.mutate.removeItem(d, id),
       });
+      if (!dest.room) Trip.photos.dropItem(dest, uid, photoRef);
       this.finish(dayIndex, `已刪除「${title}」`);
     });
   },
@@ -261,12 +283,12 @@ Trip.addItem = {
   /* 執行存檔：期間按鈕停用，失敗時顯示原因 */
   async run(action) {
     this.setSaving(true);
-    this.message(Trip.state.destination.notionPageId ? "儲存到 Notion…" : "儲存中…", "pending");
+    this.message("儲存中…", "pending");
     try {
       await action();
     } catch (err) {
       this.setSaving(false);
-      this.message(err.status === 401 ? "Notion 登入已過期，請到「選擇行程」頁重新登入" : err.message, "error");
+      this.message(err.message, "error");
     }
   },
 
