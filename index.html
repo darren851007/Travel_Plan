@@ -162,7 +162,11 @@
       </div>
 
       <div class="legend" id="transport-legend" aria-label="交通方式顏色說明"></div>
-      <div class="day-tabs" id="day-tabs" role="tablist" aria-label="選擇日期"></div>
+      <div class="day-tabs-wrap" id="day-tabs-wrap">
+        <button class="day-tabs__arrow day-tabs__arrow--prev" type="button" id="day-tabs-prev" aria-label="前面的日期" hidden>‹</button>
+        <div class="day-tabs" id="day-tabs" role="tablist" aria-label="選擇日期"></div>
+        <button class="day-tabs__arrow day-tabs__arrow--next" type="button" id="day-tabs-next" aria-label="後面的日期" hidden>›</button>
+      </div>
       <div class="day-panel" id="day-panel" role="tabpanel"></div>
     </section>
 
@@ -251,6 +255,12 @@
       <label class="field">
         <span class="field__label">說明</span>
         <textarea id="add-item-note" name="note" rows="2" maxlength="2000" placeholder="例如：記得先預約"></textarea>
+      </label>
+
+      <label class="field">
+        <span class="field__label">地圖（選填）</span>
+        <input id="add-item-map" name="map" maxlength="1000" inputmode="url" autocomplete="off" placeholder="貼上 Google 地圖連結，或輸入地點名稱、地址">
+        <span class="field__hint">行程表上會出現「📍 地圖」按鈕：連結就直接打開，地名或地址會用 Google 地圖搜尋</span>
       </label>
 
       <div class="field">
@@ -389,16 +399,25 @@
         </div>
       </fieldset>
 
-      <div class="dialog__row">
-        <label class="field">
-          <span class="field__label">飛行時間</span>
-          <input id="add-flight-duration" maxlength="20" placeholder="例如：2h 25m" autocomplete="off">
-        </label>
-        <label class="field">
-          <span class="field__label">行李</span>
-          <input id="add-flight-baggage" maxlength="50" placeholder="例如：託運 23kg" autocomplete="off">
-        </label>
-      </div>
+      <label class="field">
+        <span class="field__label">飛行時間</span>
+        <input id="add-flight-duration" maxlength="20" placeholder="例如：2h 25m" autocomplete="off">
+      </label>
+
+      <fieldset class="dialog__fieldset field">
+        <legend class="field__label">託運行李</legend>
+        <div class="dialog__row">
+          <label class="baggage-input">
+            <input id="add-flight-baggage-kg" type="number" inputmode="decimal" min="0" max="100" step="0.5" placeholder="23" aria-label="每件重量（公斤）">
+            <span>kg</span>
+          </label>
+          <label class="baggage-input">
+            <span>×</span>
+            <input id="add-flight-baggage-pieces" type="number" inputmode="numeric" min="0" max="20" step="1" placeholder="1" aria-label="件數">
+            <span>件</span>
+          </label>
+        </div>
+      </fieldset>
 
       <fieldset class="dialog__fieldset field legs-field">
         <legend class="field__label">轉機航班</legend>

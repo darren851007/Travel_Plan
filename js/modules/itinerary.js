@@ -1,5 +1,6 @@
 /* ============================================================
    每日行程：上方日期切換（彈跳動畫），下方時間軸
+   日期列可以左右滑：手機用手指，電腦可以用滑鼠滾輪、拖曳或兩側的箭頭
    可以編輯的行程：「編輯這一天」改主題與城市、每個景點都有「編輯」
    ============================================================ */
 window.Trip = window.Trip || {};
@@ -12,9 +13,15 @@ Trip.itinerary = {
     if (!this.tabs || !this.panel) return;
 
     this.tabs.addEventListener("click", (e) => {
+      /* 用滑鼠拖曳捲動後放開，不算點日期 */
+      if (this.dragged) {
+        this.dragged = false;
+        return;
+      }
       const tab = e.target.closest(".day-tab");
       if (tab) this.select(Number(tab.dataset.index), true);
     });
+    this.initScrolling();
 
     /* 編輯這一天／編輯景點（js/modules/add-item.js） */
     this.panel.addEventListener("click", (e) => {
@@ -39,8 +46,11 @@ Trip.itinerary = {
     if (!this.tabs || !this.panel) return;
     this.trip = trip;
     this.renderLegend();
+    /* 換了另一趟行程才回到第一天的位置；同一趟（例如剛編輯完）維持原本捲動的位置 */
+    const keep = this.tabsTripId === trip.id ? this.tabs.scrollLeft : 0;
+    this.tabsTripId = trip.id;
     this.renderTabs();
-    this.tabs.scrollLeft = 0;
+    this.tabs.scrollLeft = keep;
 
     const todayIndex = trip.days.findIndex((d) => d.date === Trip.utils.todayIso());
     this.select(Math.max(todayIndex, 0), animate, false);
@@ -100,7 +110,10 @@ Trip.itinerary = {
     </h4>
     ${item.note ? `<p class="tl-note">${esc(item.note)}</p>` : ""}
     ${item.uid && Trip.photos.photoOf(dest, item.uid) ? `<figure class="tl-photo" data-photo-item="${esc(item.uid)}" hidden><img alt="${esc(item.title)}的照片" loading="lazy"></figure>` : ""}
-    <div class="tl-tags">${(item.transport || []).map((k) => this.renderTag(k)).join("")}</div>
+    <div class="tl-tags">
+      ${(item.transport || []).map((k) => this.renderTag(k)).join("")}
+      ${Trip.utils.mapUrl(item.map) ? `<a class="tl-map" href="${esc(Trip.utils.mapUrl(item.map))}" target="_blank" rel="noopener noreferrer" aria-label="在地圖上打開「${esc(item.title)}」">📍 地圖</a>` : ""}
+    </div>
   </div>
 </li>`
       )
@@ -143,13 +156,88 @@ Trip.itinerary = {
 
     if (animate) Trip.utils.replay(this.panel);
 
-    /* 只有點日期時才把標籤捲進畫面，換地點時不要讓整頁跳走 */
-    if (animate && scrollTab) {
-      activeTab.scrollIntoView({
-        behavior: Trip.utils.prefersReducedMotion() ? "auto" : "smooth",
-        block: "nearest",
-        inline: "nearest",
-      });
-    }
+    /* 選到的日期要看得到：只捲日期列，不會讓整頁跳走 */
+    this.reveal(activeTab, animate && scrollTab);
+    this.updateArrows();
+  },
+
+  /* ---------- 日期列捲動 ---------- */
+
+  initScrolling() {
+    const tabs = this.tabs;
+    this.prev = document.getElementById("day-tabs-prev");
+    this.next = document.getElementById("day-tabs-next");
+    const page = () => Math.max(tabs.clientWidth * 0.8, 120);
+    this.prev?.addEventListener("click", () => this.scrollTabs(-page()));
+    this.next?.addEventListener("click", () => this.scrollTabs(page()));
+    tabs.addEventListener("scroll", () => this.updateArrows(), { passive: true });
+    window.addEventListener("resize", () => this.updateArrows());
+
+    /* 滑鼠滾輪（上下滾）變成左右捲；已經到頭就讓整頁照常捲動 */
+    tabs.addEventListener(
+      "wheel",
+      (e) => {
+        if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+        const max = tabs.scrollWidth - tabs.clientWidth;
+        const atEdge = (e.deltaY < 0 && tabs.scrollLeft <= 0) || (e.deltaY > 0 && tabs.scrollLeft >= max - 1);
+        if (max <= 0 || atEdge) return;
+        e.preventDefault();
+        tabs.scrollLeft += e.deltaY;
+      },
+      { passive: false }
+    );
+
+    /* 滑鼠拖曳捲動（手指本來就能滑） */
+    let start = null;
+    tabs.addEventListener("pointerdown", (e) => {
+      if (e.pointerType !== "mouse" || e.button !== 0) return;
+      start = { x: e.clientX, left: tabs.scrollLeft };
+      this.dragged = false;
+    });
+    tabs.addEventListener("pointermove", (e) => {
+      if (!start) return;
+      const dx = e.clientX - start.x;
+      if (Math.abs(dx) > 5) {
+        this.dragged = true;
+        tabs.classList.add("is-dragging");
+      }
+      if (this.dragged) tabs.scrollLeft = start.left - dx;
+    });
+    const end = () => {
+      start = null;
+      tabs.classList.remove("is-dragging");
+      /* 拖曳後緊接著的那一下 click 才要忽略；之後的點擊照常 */
+      setTimeout(() => (this.dragged = false), 0);
+    };
+    tabs.addEventListener("pointerup", end);
+    tabs.addEventListener("pointerleave", end);
+  },
+
+  scrollTabs(by) {
+    this.tabs.scrollBy({ left: by, behavior: Trip.utils.prefersReducedMotion() ? "auto" : "smooth" });
+  },
+
+  /* 把某個日期捲進日期列的可見範圍（只動日期列） */
+  reveal(tab, smooth) {
+    if (!tab) return;
+    const tabs = this.tabs;
+    const box = tabs.getBoundingClientRect();
+    const rect = tab.getBoundingClientRect();
+    const left = rect.left - box.left + tabs.scrollLeft;
+    const right = left + rect.width;
+    let target = null;
+    if (left < tabs.scrollLeft) target = left - 8;
+    else if (right > tabs.scrollLeft + tabs.clientWidth) target = right - tabs.clientWidth + 8;
+    if (target === null) return;
+    tabs.scrollTo({ left: Math.max(target, 0), behavior: smooth && !Trip.utils.prefersReducedMotion() ? "smooth" : "auto" });
+  },
+
+  /* 兩側箭頭：前面或後面還有日期時才出現 */
+  updateArrows() {
+    if (!this.prev || !this.next) return;
+    const tabs = this.tabs;
+    const max = tabs.scrollWidth - tabs.clientWidth;
+    this.prev.hidden = tabs.scrollLeft <= 8;
+    this.next.hidden = tabs.scrollLeft >= max - 8;
   },
 };

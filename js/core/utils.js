@@ -44,6 +44,22 @@ window.Trip = window.Trip || {};
       return Math.round((utc(to) - utc(from)) / 86400000);
     },
 
+    /* 景點的地圖：http(s) 連結就直接用；其他文字（地名、地址）用 Google 地圖搜尋；空白回傳空字串
+       只接受 http(s)，避免 javascript: 之類的連結 */
+    mapUrl(value) {
+      const text = String(value || "").trim();
+      if (!text) return "";
+      if (/^https?:\/\//i.test(text)) {
+        try {
+          const url = new URL(text);
+          return url.protocol === "https:" || url.protocol === "http:" ? url.href : "";
+        } catch {
+          return "";
+        }
+      }
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(text)}`;
+    },
+
     prefersReducedMotion() {
       return reducedMotion.matches;
     },

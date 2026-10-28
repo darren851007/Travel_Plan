@@ -249,6 +249,7 @@
   overflow-x: auto;
   padding: 4px 4px 14px;
   scroll-snap-type: x mandatory;
+  scroll-padding-inline: 4px;
   scrollbar-width: none;
 }
 
@@ -1695,4 +1696,103 @@ a.btn.is-disabled {
 .leg input[type="time"],
 .flight-form__group input[type="time"] {
   padding-inline: 8px;
+}
+
+/* ---------- 託運行李 ---------- */
+.baggage-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.baggage-input input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: var(--line) solid var(--ink);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  font: inherit;
+  font-size: 16px;
+  color: inherit;
+}
+
+.flight__baggage {
+  margin: 10px 0 0;
+  font-size: 0.9rem;
+}
+
+/* ---------- 日期列：左右箭頭、滑鼠拖曳 ---------- */
+.day-tabs-wrap {
+  position: relative;
+}
+
+.day-tabs__arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  width: 36px;
+  height: 36px;
+  margin-top: -12px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+  font: inherit;
+  font-size: 1.3rem;
+  line-height: 1;
+  color: inherit;
+  cursor: pointer;
+}
+
+.day-tabs__arrow--prev {
+  left: -6px;
+}
+
+.day-tabs__arrow--next {
+  right: -6px;
+}
+
+.day-tabs.is-dragging {
+  cursor: grabbing;
+  scroll-snap-type: none;
+  user-select: none;
+}
+
+/* 用滑鼠的電腦：顯示細細的捲軸，知道可以左右捲 */
+@media (hover: hover) and (pointer: fine) {
+  .day-tabs {
+    scrollbar-width: thin;
+  }
+
+  .day-tabs::-webkit-scrollbar {
+    display: block;
+    height: 6px;
+  }
+
+  .day-tabs::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: var(--dash);
+  }
+}
+
+/* 景點的地圖按鈕 */
+.tl-map {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 2px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--card);
+  font-size: 0.82rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.tl-map:hover,
+.tl-map:focus-visible {
+  background: var(--butter);
 }

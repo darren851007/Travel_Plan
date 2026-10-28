@@ -62,7 +62,6 @@ Trip.flights = {
     <div><dt>出發航廈</dt><dd>${esc(f.from.terminal)}</dd></div>
     ${last.to.terminal ? `<div><dt>抵達航廈</dt><dd>${esc(last.to.terminal)}</dd></div>` : ""}
     ${passengers.length ? "" : `<div><dt>座位</dt><dd>${esc(f.seat)}</dd></div>`}
-    <div><dt>行李</dt><dd>${esc(f.baggage)}</dd></div>
   </dl>
   ${passengers.length ? `
   <ul class="flight__passengers" aria-label="旅客與座位">
@@ -76,6 +75,7 @@ Trip.flights = {
       })
       .join("")}
   </ul>` : ""}
+  ${Trip.addFlight.baggageText(f) ? `<p class="flight__baggage">🧳 託運行李：${esc(Trip.addFlight.baggageText(f))}</p>` : ""}
   ${editable ? `<div class="flight__actions"><button class="btn-edit" type="button" data-edit-flight="${esc(f.type)}">編輯</button></div>` : ""}
 </article>`;
       })

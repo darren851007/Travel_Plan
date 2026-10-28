@@ -28,6 +28,7 @@ Trip.addItem = {
       transport: $("add-item-transport"),
       must: $("add-item-must"),
       note: $("add-item-note"),
+      map: $("add-item-map"),
       msg: $("add-item-msg"),
       submit: $("add-item-submit"),
       remove: $("add-item-delete"),
@@ -117,6 +118,7 @@ Trip.addItem = {
     f.city.value = day.city || "";
     f.title.value = item.title || "";
     f.note.value = item.note || "";
+    f.map.value = item.map || "";
     f.must.checked = Boolean(item.must);
     for (const box of f.transport.querySelectorAll("input")) box.checked = (item.transport || []).includes(box.value);
     f.themeField.hidden = true;
@@ -156,6 +158,7 @@ Trip.addItem = {
     f.title.value = "";
     f.theme.value = "";
     f.note.value = "";
+    f.map.value = "";
     f.must.checked = false;
   },
 
@@ -191,6 +194,7 @@ Trip.addItem = {
       transport: [...f.transport.querySelectorAll("input:checked")].map((el) => el.value),
       must: f.must.checked,
       note: f.note.value.trim(),
+      map: f.map.value.trim(),
     };
     /* 主題只在新的一天（或那天還沒有主題）時送出，編輯景點不會動到當天主題 */
     if (!f.themeField.hidden) item.theme = f.theme.value.trim();

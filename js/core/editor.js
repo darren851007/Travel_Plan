@@ -90,6 +90,7 @@ Trip.mutate = {
     if (!day.city && row.city) day.city = row.city;
     if (!day.theme && row.theme) day.theme = row.theme;
     const item = { uid: id, time: row.time, title: row.title, note: row.note, transport: row.transport, must: row.must };
+    if (row.map) item.map = row.map;
     if (row.photo) item.photo = row.photo;
     day.items.push(item);
     day.items.sort((a, b) => (a.time || "").localeCompare(b.time || ""));

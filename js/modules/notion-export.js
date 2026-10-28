@@ -343,7 +343,7 @@ Trip.notionExport = {
       flights: trip.flights.flatMap(({ uid, connections = [], ...f }) => {
         const legs = [f, ...connections];
         return legs.map((leg, k) => ({
-          ...(k === 0 ? f : { ...leg, type: f.type, date: f.date }),
+          ...(k === 0 ? { ...f, baggage: Trip.addFlight.baggageText(f) } : { ...leg, type: f.type, date: f.date }),
           title: legs.length > 1 ? `${[leg.airline, leg.number].filter(Boolean).join(" ")}（第 ${k + 1} 段）` : "",
         }));
       }),
@@ -360,6 +360,7 @@ Trip.notionExport = {
             must: item.must,
             theme: day.theme,
             note: item.note,
+            map: Trip.utils.mapUrl(item.map),
           }))
       ),
       lodging: trip.lodgings.map((l) => ({

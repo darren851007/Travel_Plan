@@ -34,7 +34,7 @@ Trip.addFlight = {
     const field = (name) => $(`add-flight-${name}`);
     this.f = Object.fromEntries(
       ["type", "number", "airline", "aircraft", "lookup", "from-code", "from-city", "from-time", "from-terminal",
-        "to-code", "to-city", "to-time", "to-terminal", "duration", "baggage", "passengers", "passenger-add",
+        "to-code", "to-city", "to-time", "to-terminal", "duration", "baggage-kg", "baggage-pieces", "passengers", "passenger-add",
         "legs", "leg-add", "date", "msg", "submit"]
         .map((name) => [name, field(name)])
     );
@@ -170,7 +170,9 @@ Trip.addFlight = {
     await this.prepare([t]);
 
     this.fillSegment(this.mainSegment(), flight);
-    this.f.baggage.value = flight.baggage || "";
+    const bag = this.baggageOf(flight);
+    this.f["baggage-kg"].value = bag.kg ?? "";
+    this.f["baggage-pieces"].value = bag.pieces ?? "";
     (flight.connections || []).forEach((leg) => this.addLeg(leg));
     /* 舊資料只有一個座位：放進第一位旅客 */
     const passengers = flight.passengers?.length ? flight.passengers : flight.seat ? [{ name: "", seat: flight.seat }] : [];
@@ -195,7 +197,7 @@ Trip.addFlight = {
 </label>`
       )
       .join("");
-    for (const name of [...this.SEGMENT_FIELDS, "baggage"]) {
+    for (const name of [...this.SEGMENT_FIELDS, "baggage-kg", "baggage-pieces"]) {
       if (name === "from-code" || name === "from-city" || name === "to-code" || name === "to-city") continue;
       this.f[name].value = "";
     }
@@ -287,11 +289,37 @@ Trip.addFlight = {
     for (const name of this.SEGMENT_FIELDS) seg.get(name).value = value[name] || "";
   },
 
+  /* 託運行李：每件公斤數與件數；舊資料只有文字（例如「託運 23kg」）時從文字裡取出公斤數，件數算 1 */
+  baggageOf(flight) {
+    const num = (v) => (v === "" || v == null || !Number.isFinite(Number(v)) ? null : Number(v));
+    if (num(flight?.baggageKg) !== null || num(flight?.baggagePieces) !== null) {
+      return { kg: num(flight.baggageKg), pieces: num(flight.baggagePieces) };
+    }
+    const kg = String(flight?.baggage || "").match(/(\d+(?:\.\d+)?)\s*(?:kg|公斤)/i)?.[1];
+    return kg ? { kg: Number(kg), pieces: 1 } : { kg: null, pieces: null };
+  },
+
+  /* 「23 kg × 2 件」；沒填就空字串 */
+  baggageText(flight) {
+    const { kg, pieces } = this.baggageOf(flight);
+    if (kg === null && pieces === null) return String(flight?.baggage || "");
+    return [kg !== null ? `${kg} kg` : "", pieces !== null ? `${pieces} 件` : ""].filter(Boolean).join(" × ");
+  },
+
   collect() {
+    const num = (name, max) => {
+      const v = this.f[name].value.trim();
+      const n = Number(v);
+      return v === "" || !Number.isFinite(n) ? "" : Math.min(Math.max(n, 0), max);
+    };
+    const baggageKg = num("baggage-kg", 100);
+    const baggagePieces = num("baggage-pieces", 20) === "" ? "" : Math.round(num("baggage-pieces", 20));
     return {
       type: this.selectedType(),
       ...this.segmentData(this.mainSegment()),
-      baggage: this.f.baggage.value.trim(),
+      baggageKg,
+      baggagePieces,
+      baggage: this.baggageText({ baggageKg, baggagePieces }),
       passengers: this.collectPassengers(),
       connections: this.legSegments().map((seg) => this.segmentData(seg)).filter((leg) => !this.isEmptyLeg(leg)),
     };
