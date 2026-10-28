@@ -1525,3 +1525,54 @@ a.btn.is-disabled {
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* 網站還沒設定 Notion 時的設定步驟 */
+.setup-copy {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.setup-copy__row {
+  display: flex;
+  gap: 8px;
+}
+
+.setup-copy__row input {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  font: inherit;
+  font-size: 16px;
+  color: inherit;
+}
+
+.setup-code {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.export-steps > li {
+  min-width: 0;
+}
+
+.setup-code {
+  max-width: 100%;
+  white-space: pre;
+}
+
+/* 對話框裡的內容不要撐出寬度（長網址、指令會在自己的框裡捲動） */
+.dialog__form > *,
+.export-body > * {
+  min-width: 0;
+}

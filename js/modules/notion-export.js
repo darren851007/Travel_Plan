@@ -30,6 +30,8 @@ Trip.notionExport = {
     });
     this.dialog.addEventListener("click", (e) => {
       if (e.target === this.dialog && !this.busy) this.dialog.close();
+      const copy = e.target.closest("[data-copy]");
+      if (copy) this.copy(copy);
       const link = e.target.closest("[data-export]");
       if (link?.dataset.export === "relogin") this.login();
       if (link?.dataset.export === "logout") this.logout();
@@ -74,11 +76,7 @@ Trip.notionExport = {
   start() {
     if (!Trip.api.status.configured) {
       this.dialog.showModal();
-      this.render(
-        `<p>網站還沒設定 Notion 整合，暫時不能匯出。</p>
-         <p class="field__hint">網站管理員需要先在 Notion 建立公開整合，並設定 NOTION_CLIENT_ID、NOTION_CLIENT_SECRET、SESSION_SECRET。</p>`,
-        null
-      );
+      this.renderSetup();
       this.message("");
       return;
     }
@@ -90,6 +88,55 @@ Trip.notionExport = {
   },
 
   /* ---------- 對話框的畫面 ---------- */
+
+  /* 網站還沒有 Notion 整合：給網站擁有者的設定步驟（設定好之後，使用者按按鈕就會直接去綁定） */
+  renderSetup() {
+    const { esc } = Trip.utils;
+    const origin = location.origin;
+    const copy = (label, value) => `
+      <div class="setup-copy">
+        <span class="field__label">${esc(label)}</span>
+        <div class="setup-copy__row">
+          <input readonly value="${esc(value)}" aria-label="${esc(label)}">
+          <button class="btn btn--ghost btn--small" type="button" data-copy="${esc(value)}">複製</button>
+        </div>
+      </div>`;
+    this.render(
+      `<p>這個網站還沒連上 Notion，設定一次之後，大家按「匯出至 Notion」就會直接進入綁定。</p>
+       <ol class="export-steps">
+         <li>打開 <a href="https://www.notion.so/profile/integrations" target="_blank" rel="noopener">Notion 整合頁面</a>，按「新增整合」，類型選「<strong>公開</strong>」</li>
+         <li>貼上下面的網址，權限勾「讀取內容」「插入內容」
+           ${copy("Redirect URI", `${origin}/api/auth/callback`)}
+           ${copy("隱私權政策", `${origin}/privacy`)}
+           ${copy("使用條款", `${origin}/privacy#terms`)}
+         </li>
+         <li>在電腦的「終端機」進入專案資料夾，執行下面三個指令，依序貼上 Notion 給的 Client ID、Client Secret，以及一串隨機文字：
+           <pre class="setup-code">npx wrangler secret put NOTION_CLIENT_ID
+npx wrangler secret put NOTION_CLIENT_SECRET
+npx wrangler secret put SESSION_SECRET</pre>
+         </li>
+         <li>完成後重新整理這個網頁，再按一次「匯出至 Notion」</li>
+       </ol>`,
+      "我設定好了，重新檢查",
+      () => this.recheck()
+    );
+  },
+
+  /* 設定完後重新讀網站狀態；設定好就直接進入綁定 */
+  async recheck() {
+    this.message("檢查中…", "pending");
+    try {
+      Object.assign(Trip.api.status, await Trip.api.request("GET", "status"));
+    } catch {
+      /* 讀不到就維持原狀 */
+    }
+    if (!Trip.api.status.configured) {
+      this.message("網站還沒讀到 Notion 設定，請確認三個密鑰都設定好了", "error");
+      return;
+    }
+    this.dialog.close();
+    this.start();
+  },
 
   async open(notice) {
     if (!Trip.state.destination) return;
@@ -201,6 +248,19 @@ Trip.notionExport = {
     Trip.api.status.loggedIn = false;
     this.renderLoggedOut();
     this.message("已登出 Notion", "ok");
+  },
+
+  async copy(button) {
+    try {
+      await navigator.clipboard.writeText(button.dataset.copy);
+      button.textContent = "已複製";
+    } catch {
+      const input = button.parentElement.querySelector("input");
+      input.focus();
+      input.select();
+      button.textContent = "請長按複製";
+    }
+    setTimeout(() => (button.textContent = "複製"), 1800);
   },
 
   savedParent() {
