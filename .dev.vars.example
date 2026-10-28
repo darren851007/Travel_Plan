@@ -2,7 +2,7 @@
 # Notion 公開整合的 OAuth client ID / secret（https://www.notion.so/profile/integrations）
 NOTION_CLIENT_ID=
 NOTION_CLIENT_SECRET=
-# 加密登入 Cookie 用的隨機字串（至少 32 字元），例如：openssl rand -base64 48
+# 選填：加密登入 Cookie 用的隨機字串（至少 32 字元）；不填就從 NOTION_CLIENT_SECRET 衍生
 SESSION_SECRET=
 # 查詢真實航班（機型、航廈、起降時間）用的 AeroDataBox 金鑰（官網、API.Market 或 RapidAPI 申請都可以）；不填就只能手動輸入
 AERODATABOX_KEY=

@@ -89,10 +89,10 @@ Trip.notionExport = {
 
   /* ---------- 對話框的畫面 ---------- */
 
-  /* 網站還沒有 Notion 整合：給網站擁有者的設定步驟（設定好之後，使用者按按鈕就會直接去綁定） */
+  /* 網站還沒有 Notion 整合：一般使用者只看到一句說明；網站擁有者展開後照步驟設定（手機也能完成）
+     設定好之後，使用者按按鈕就會直接去 Notion 綁定 */
   renderSetup() {
     const { esc } = Trip.utils;
-    const origin = location.origin;
     const copy = (label, value) => `
       <div class="setup-copy">
         <span class="field__label">${esc(label)}</span>
@@ -101,23 +101,26 @@ Trip.notionExport = {
           <button class="btn btn--ghost btn--small" type="button" data-copy="${esc(value)}">複製</button>
         </div>
       </div>`;
+    const worker = "travel-plan";
     this.render(
-      `<p>這個網站還沒連上 Notion，設定一次之後，大家按「匯出至 Notion」就會直接進入綁定。</p>
-       <ol class="export-steps">
-         <li>打開 <a href="https://www.notion.so/profile/integrations" target="_blank" rel="noopener">Notion 整合頁面</a>，按「新增整合」，類型選「<strong>公開</strong>」</li>
-         <li>貼上下面的網址，權限勾「讀取內容」「插入內容」
-           ${copy("Redirect URI", `${origin}/api/auth/callback`)}
-           ${copy("隱私權政策", `${origin}/privacy`)}
-           ${copy("使用條款", `${origin}/privacy#terms`)}
-         </li>
-         <li>在電腦的「終端機」進入專案資料夾，執行下面三個指令，依序貼上 Notion 給的 Client ID、Client Secret，以及一串隨機文字：
-           <pre class="setup-code">npx wrangler secret put NOTION_CLIENT_ID
-npx wrangler secret put NOTION_CLIENT_SECRET
-npx wrangler secret put SESSION_SECRET</pre>
-         </li>
-         <li>完成後重新整理這個網頁，再按一次「匯出至 Notion」</li>
-       </ol>`,
-      "我設定好了，重新檢查",
+      `<p>這個網站還沒開啟 Notion 匯出，請稍後再試。</p>
+       <details class="setup">
+         <summary>我是網站管理員：怎麼開啟（手機也可以）</summary>
+         <ol class="export-steps">
+           <li>打開 <a href="https://www.notion.so/profile/integrations" target="_blank" rel="noopener">Notion 整合頁面</a> → 新增整合 → 類型選「<strong>公開</strong>」，貼上：
+             ${copy("Redirect URI", `${location.origin}/api/auth/callback`)}
+             ${copy("隱私權政策", `${location.origin}/privacy`)}
+             ${copy("使用條款", `${location.origin}/privacy#terms`)}
+           </li>
+           <li>存好後，Notion 會給你「Client ID」和「Client Secret」</li>
+           <li>打開 <a href="https://dash.cloudflare.com/?to=/:account/workers/services/view/${worker}/production/settings" target="_blank" rel="noopener">Cloudflare</a>（Workers 和 Pages → ${worker} → 設定）→「變數和密碼」→ 新增，類型選「<strong>密碼（Secret）</strong>」，新增兩筆：
+             ${copy("名稱 1（值貼 Client ID）", "NOTION_CLIENT_ID")}
+             ${copy("名稱 2（值貼 Client Secret）", "NOTION_CLIENT_SECRET")}
+           </li>
+           <li>按「部署」後回到這裡，按下面的「重新檢查」</li>
+         </ol>
+       </details>`,
+      "重新檢查",
       () => this.recheck()
     );
   },
@@ -131,7 +134,7 @@ npx wrangler secret put SESSION_SECRET</pre>
       /* 讀不到就維持原狀 */
     }
     if (!Trip.api.status.configured) {
-      this.message("網站還沒讀到 Notion 設定，請確認三個密鑰都設定好了", "error");
+      this.message("網站還沒讀到 Notion 設定，請確認 NOTION_CLIENT_ID、NOTION_CLIENT_SECRET 都設定好了，並已按「部署」", "error");
       return;
     }
     this.dialog.close();

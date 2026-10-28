@@ -1576,3 +1576,16 @@ a.btn.is-disabled {
 .export-body > * {
   min-width: 0;
 }
+
+.setup summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-size: 0.9rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.setup .export-steps {
+  margin-top: 6px;
+}

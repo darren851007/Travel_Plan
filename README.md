@@ -95,14 +95,11 @@ scripts/build.mjs       打包網頁到 dist/site（只含網頁檔案）
    - Redirect URI：`https://<你的網址>/api/auth/callback`
    - 隱私權政策／使用條款：`https://<你的網址>/privacy`、`https://<你的網址>/privacy#terms`
    - 權限：讀取內容、插入內容
-4. 設定 Cloudflare 密鑰（在自己的終端機執行，指令會停下來請你貼上數值）：
-   ```
-   npx wrangler secret put NOTION_CLIENT_ID
-   npx wrangler secret put NOTION_CLIENT_SECRET
-   npx wrangler secret put SESSION_SECRET   # 隨機 48 字元以上，例如 openssl rand -base64 48
-   npx wrangler secret put AERODATABOX_KEY  # 選填：AeroDataBox 金鑰（官網、API.Market 或 RapidAPI），用來自動帶入機型與航廈
-   ```
-   設定密鑰會立刻生效，不用重新部署
+4. 把 Notion 給的 Client ID、Client Secret 設成 Cloudflare 密鑰（兩種方法擇一，手機用第一種）：
+   - **Cloudflare 網頁**：Workers 和 Pages → travel-plan → 設定 →「變數和密碼」→ 新增兩筆「密碼（Secret）」：`NOTION_CLIENT_ID`、`NOTION_CLIENT_SECRET`，按部署
+   - **電腦終端機**：`npx wrangler secret put NOTION_CLIENT_ID`、`npx wrangler secret put NOTION_CLIENT_SECRET`
+   - 選填：`SESSION_SECRET`（加密登入 Cookie 用；不設就從 Client Secret 衍生）、`AERODATABOX_KEY`（自動帶入機型與航廈）
+   - 還沒設定時，網站的「匯出至 Notion」視窗裡也有「我是網站管理員」的步驟說明
 
 之後修改程式只要 `npm run deploy`。
 
