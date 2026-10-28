@@ -1,9 +1,9 @@
 /* ============================================================
    匯出至 Notion：把目前這趟行程建立成使用者自己 Notion 裡的一個頁面
-   - 第一次要用 Notion 登入，並在授權畫面勾選要放行程的頁面（例如「旅行」）
+   - 還沒綁定 Notion：按鈕直接帶到 Notion 授權畫面，勾選要放行程的頁面（例如「旅行」）後回到這趟行程
    - 頁面內容（伺服器 lib/notion.js 建立）：日期摘要、航班／每日行程／住宿三張表、可打勾的準備清單
    - 匯出是一次性的複製，之後在網站上的修改不會同步到 Notion，可以再匯出一次
-   只有部署在 Cloudflare、而且網站設定好 Notion 登入時才會顯示
+   部署在 Cloudflare 時顯示（網站還沒設定 Notion 整合時，按下會說明）
    ============================================================ */
 window.Trip = window.Trip || {};
 
@@ -22,7 +22,7 @@ Trip.notionExport = {
     this.primary = $("notion-export-go");
     this.closeButton = $("notion-export-close");
 
-    this.button.addEventListener("click", () => this.open());
+    this.button.addEventListener("click", () => this.start());
     this.closeButton.addEventListener("click", () => this.dialog.close());
     this.primary.addEventListener("click", () => this.action?.());
     this.dialog.addEventListener("cancel", (e) => {
@@ -37,7 +37,7 @@ Trip.notionExport = {
 
     this.reopen = this.takeLoginResult();
     Trip.api.onStatus((status) => {
-      this.button.hidden = !status.configured;
+      this.button.hidden = false;
       if (this.reopen && status.configured) {
         const notice = this.reopen;
         this.reopen = null;
@@ -68,6 +68,25 @@ Trip.notionExport = {
       "not-configured": ["網站尚未設定 Notion 登入", "error"],
     };
     return back ? messages[result] || ["", "pending"] : null;
+  },
+
+  /* 按下「匯出至 Notion」：還沒綁定就直接去 Notion 授權，已綁定就選頁面 */
+  start() {
+    if (!Trip.api.status.configured) {
+      this.dialog.showModal();
+      this.render(
+        `<p>網站還沒設定 Notion 整合，暫時不能匯出。</p>
+         <p class="field__hint">網站管理員需要先在 Notion 建立公開整合，並設定 NOTION_CLIENT_ID、NOTION_CLIENT_SECRET、SESSION_SECRET。</p>`,
+        null
+      );
+      this.message("");
+      return;
+    }
+    if (!Trip.api.status.loggedIn) {
+      this.login();
+      return;
+    }
+    this.open();
   },
 
   /* ---------- 對話框的畫面 ---------- */
