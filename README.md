@@ -13,7 +13,7 @@
 - **＋ 新增行程**：選國家 → 城市與每個城市的天數 → 出發日與回程日（和天數互相連動）→ 標題 → 封面照片（選填）
 - **網頁上可以編輯所有資訊**：
   - 行程資訊：標題、副標、出發日、回程日（延後會在最後加「自由活動」，提早會刪掉最後幾天，有景點時會先提醒）、封面照片
-  - 航班：＋ 新增航班（航班號碼自動帶出航空公司、機場依城市預先帶入）、機型、多位旅客（姓名＋座位）、編輯、刪除
+  - 航班：＋ 新增航班（航班號碼自動帶出航空公司、機場依城市預先帶入）、機型、轉機航班（最多再 3 段，卡片顯示轉機機場與停留時間）、多位旅客（姓名＋座位，點旅客就能編輯）、編輯、刪除
   - 每一天：主題與城市（「編輯這一天」）
   - 景點：＋ 新增景點、編輯（可換到別天）、刪除、照片
   - 住宿：＋ 新增住宿、編輯、刪除
@@ -91,7 +91,7 @@ scripts/build.mjs       打包網頁到 dist/site（只含網頁檔案）
 1. 註冊 [Cloudflare](https://dash.cloudflare.com/sign-up)，在專案資料夾執行 `npx wrangler login`
 2. `npm install`，然後 `npm run deploy`，取得網址（例如 `https://travel-plan.<你的帳號>.workers.dev`）
    - 到這一步就能用：自己的行程、分享、**即時共同編輯**
-3. 匯出至 Notion：到 [Notion 整合頁面](https://www.notion.so/profile/integrations) 建立「**公開**」整合
+3. 匯出至 Notion：到 [Notion 開發者頁面](https://app.notion.com/developers/connections) 建立「**公開（Public）**」連線
    - Redirect URI：`https://<你的網址>/api/auth/callback`
    - 隱私權政策／使用條款：`https://<你的網址>/privacy`、`https://<你的網址>/privacy#terms`
    - 權限：讀取內容、插入內容

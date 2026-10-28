@@ -107,7 +107,7 @@ Trip.notionExport = {
        <details class="setup">
          <summary>我是網站管理員：怎麼開啟（手機也可以）</summary>
          <ol class="export-steps">
-           <li>打開 <a href="https://www.notion.so/profile/integrations" target="_blank" rel="noopener">Notion 整合頁面</a> → 新增整合 → 類型選「<strong>公開</strong>」，貼上：
+           <li>打開 <a href="https://app.notion.com/developers/connections" target="_blank" rel="noopener">Notion 開發者頁面</a> → 建立新的「<strong>公開（Public）</strong>」連線，把下面三個網址貼到表單對應的欄位：
              ${copy("Redirect URI", `${location.origin}/api/auth/callback`)}
              ${copy("隱私權政策", `${location.origin}/privacy`)}
              ${copy("使用條款", `${location.origin}/privacy#terms`)}
@@ -339,7 +339,14 @@ Trip.notionExport = {
         transports: trip.transports,
         checklist: (trip.checklist || []).map((c) => ({ text: c.text, hint: c.hint, checked: done.has(c.id) })),
       },
-      flights: trip.flights.map(({ uid, ...f }) => f),
+      /* 有轉機時每一段一列，標題加上「第幾段」 */
+      flights: trip.flights.flatMap(({ uid, connections = [], ...f }) => {
+        const legs = [f, ...connections];
+        return legs.map((leg, k) => ({
+          ...(k === 0 ? f : { ...leg, type: f.type, date: f.date }),
+          title: legs.length > 1 ? `${[leg.airline, leg.number].filter(Boolean).join(" ")}（第 ${k + 1} 段）` : "",
+        }));
+      }),
       itinerary: trip.days.flatMap((day, i) =>
         [...day.items]
           .sort((a, b) => (a.time || "").localeCompare(b.time || ""))

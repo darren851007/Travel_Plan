@@ -1589,3 +1589,110 @@ a.btn.is-disabled {
 .setup .export-steps {
   margin-top: 6px;
 }
+
+/* ---------- 轉機航班 ---------- */
+/* 卡片：轉機次數、每段之間的轉機與停留時間 */
+.flight__stops {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.flight__layover {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin: 12px 0 4px;
+  padding: 6px 12px;
+  border: 2px dashed var(--dash);
+  border-radius: var(--radius-sm);
+  background: var(--butter);
+  font-size: 0.85rem;
+}
+
+.flight__leg-no {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+}
+
+/* 對話框：每一段轉機一張小卡 */
+.legs {
+  display: grid;
+  gap: 12px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legs:empty {
+  display: none;
+}
+
+.leg {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+}
+
+.leg__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.leg__label {
+  font-size: 0.85rem;
+}
+
+.leg input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: var(--line) solid var(--ink);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  font: inherit;
+  font-size: 16px;
+  color: inherit;
+}
+
+.legs__add {
+  justify-self: start;
+  margin-top: 4px;
+}
+
+/* 旅客 chip：可以編輯時是按鈕，點了打開編輯 */
+.flight__passengers li:has(.passenger-chip) {
+  padding: 0;
+}
+
+.passenger-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 3px 4px 3px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.passenger-chip:hover,
+.passenger-chip:focus-visible {
+  background: var(--butter);
+}
+
+/* 時間欄位比較窄：內距小一點，時間才不會被截掉 */
+.leg input[type="time"],
+.flight-form__group input[type="time"] {
+  padding-inline: 8px;
+}
