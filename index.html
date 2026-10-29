@@ -367,10 +367,14 @@
         <span>包含訂房編號、電話、旅客與座位</span>
       </label>
 
-      <label class="field" id="share-link-field">
-        <span class="field__label">分享連結</span>
-        <input id="share-link" readonly>
-      </label>
+      <div class="field" id="share-link-field">
+        <label class="field__label" for="share-link">唯讀連結</label>
+        <div class="link-row">
+          <input id="share-link" readonly>
+          <button class="btn btn--ghost btn--small" type="button" id="share-copy" aria-label="複製唯讀連結">複製</button>
+          <button class="btn btn--ghost btn--small" type="button" id="share-readonly" aria-label="分享唯讀連結" hidden>分享</button>
+        </div>
+      </div>
       <div class="btn-row" id="share-login" hidden>
         <button class="btn" type="button" id="share-login-button">用 Google 登入後分享</button>
       </div>
@@ -412,10 +416,20 @@
 
       <div class="btn-row dialog__actions">
         <button class="btn btn--ghost" type="button" id="share-close">關閉</button>
-        <button class="btn btn--ghost" type="button" id="share-copy">複製連結</button>
         <button class="btn" type="button" id="share-native" hidden>分享…</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- 按「分享…」時：有共編連結就先選要分享哪一條 -->
+  <dialog class="dialog dialog--small" id="share-choose-dialog" aria-labelledby="share-choose-title">
+    <div class="dialog__form">
+      <h3 class="dialog__title" id="share-choose-title">要分享哪個連結？</h3>
+      <div class="share-choose" id="share-choose-list"></div>
+      <div class="btn-row dialog__actions">
+        <button class="btn btn--ghost" type="button" id="share-choose-cancel">取消</button>
+      </div>
+    </div>
   </dialog>
 
   <!-- 擁有者：申請清單（這趟行程所有還沒處理的申請；沒有申請時按鈕隱藏） -->

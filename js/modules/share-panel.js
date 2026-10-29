@@ -31,7 +31,21 @@ Trip.sharePanel = {
     $("trip-share").addEventListener("click", () => this.open());
     $("share-close").addEventListener("click", () => this.dialog.close());
     $("share-copy").addEventListener("click", () => this.copy());
-    this.native.addEventListener("click", () => this.shareNative());
+    this.native.addEventListener("click", () => this.chooseShare());
+    /* 唯讀連結旁的「分享」：直接分享唯讀連結 */
+    this.shareReadonly = $("share-readonly");
+    this.shareReadonly.addEventListener("click", () => {
+      if (this.url) this.shareNative(this.url, "readonly");
+    });
+    this.chooser = $("share-choose-dialog");
+    this.chooserList = $("share-choose-list");
+    $("share-choose-cancel").addEventListener("click", () => this.chooser.close());
+    this.chooserList.addEventListener("click", (e) => {
+      const button = e.target.closest("[data-share-url]");
+      if (!button) return;
+      this.chooser.close();
+      this.shareNative(button.dataset.shareUrl, button.dataset.shareKind);
+    });
     $("shared-save").addEventListener("click", () => this.saveShared());
     this.linkField = $("share-link-field");
     this.linkHint = $("share-link-hint");
@@ -307,6 +321,7 @@ Trip.sharePanel = {
     this.loginRow.hidden = !approval || loggedIn;
     this.copyButton.hidden = approval && !loggedIn;
     this.native.hidden = (approval && !loggedIn) || typeof navigator.share !== "function";
+    this.shareReadonly.hidden = this.native.hidden;
     this.linkHint.textContent = approval
       ? "好友打開是唯讀。他按「加入我的行程」會送出申請，你同意後他就是這趟行程的共編成員，看到的是即時的最新內容。"
       : "好友打開是唯讀，可以「加入我的行程」存一份到自己的手機。行程內容只在連結裡，不會上傳到任何地方；之後修改要再分享一次。";
@@ -345,11 +360,53 @@ Trip.sharePanel = {
     }
   },
 
-  async shareNative() {
+  /* 這趟行程現在可以分享的共編連結：舊的共編行程是那一條共用連結；
+     擁有者的是還沒有人用過的專屬邀請連結（已經綁定帳號的分享出去也打不開） */
+  async collabLinks() {
+    const dest = Trip.state.destination;
+    if (!dest?.room) return [];
+    if (!dest.managed) return [{ label: "共編連結", detail: "拿到的人都能一起編輯", url: Trip.collab.link(dest.room) }];
+    if (dest.role !== "owner") return [];
+    await this.inviteLoad;
+    return (this.invites || [])
+      .filter((inv) => !inv.user)
+      .map((inv) => ({
+        label: `共編連結：${inv.label}`,
+        detail: inv.role === "edit" ? "可以一起編輯" : "只能看",
+        url: Trip.collab.inviteLink(dest.room, inv.code),
+      }));
+  },
+
+  /* 「分享…」：沒有共編連結就直接分享唯讀連結；有的話先選要分享哪一條 */
+  async chooseShare() {
     if (!this.url) return;
+    const links = await this.collabLinks();
+    if (!links.length) {
+      this.shareNative(this.url, "readonly");
+      return;
+    }
+    const { esc } = Trip.utils;
+    const choices = [
+      { label: "唯讀連結", detail: "好友只能看，可以申請加入", url: this.url, kind: "readonly" },
+      ...links.map((l) => ({ ...l, kind: "collab" })),
+    ];
+    this.chooserList.innerHTML = choices
+      .map(
+        (c) => `
+<button class="share-choose__item" type="button" data-share-url="${esc(c.url)}" data-share-kind="${c.kind}">
+  <strong>${esc(c.label)}</strong>
+  <span class="field__hint">${esc(c.detail)}</span>
+</button>`
+      )
+      .join("");
+    this.chooser.showModal();
+  },
+
+  async shareNative(url, kind) {
     const trip = Trip.state.trip;
+    const text = kind === "collab" ? `一起規劃「${trip.title}」（${trip.dateRange}）` : `${trip.title}（${trip.dateRange}）`;
     try {
-      await navigator.share({ title: trip.title, text: `${trip.title}（${trip.dateRange}）`, url: this.url });
+      await navigator.share({ title: trip.title, text, url });
     } catch (err) {
       if (err.name !== "AbortError") this.message("無法開啟分享選單，請改用「複製連結」", "error");
     }

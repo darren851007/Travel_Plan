@@ -816,14 +816,39 @@ a.btn.is-disabled {
   margin-bottom: 16px;
 }
 
+/* 對話框：dialog 本身是蓋滿畫面的透明捲動層，卡片（上下左右的外框、底色、陰影）是裡面的 .dialog__form
+   卡片比畫面短時置中；比畫面高（手機）時從上面開始排，整個畫面往下滑就看得到卡片的下邊框與按鈕
+   滑到底不會帶動後面的頁面；底部留 iPhone 底部橫條的空間 */
 .dialog {
-  width: min(520px, calc(100vw - 32px));
-  max-height: calc(100dvh - 32px);
-  padding: 0;
+  --dialog-width: 520px;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 16px 22px 22px 16px;
+  padding-bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+}
+
+.dialog[open] {
+  display: flex;
+}
+
+/* margin: auto 在可捲動的 flex 裡：放得下就置中，放不下就從上面開始（不會被切掉） */
+.dialog > .dialog__form {
+  width: min(var(--dialog-width), 100%);
+  margin: auto;
   border: var(--line) solid var(--ink);
   border-radius: var(--radius);
   background: var(--paper);
-  color: var(--ink);
   box-shadow: 6px 6px 0 var(--ink);
 }
 
@@ -1529,7 +1554,7 @@ a.btn.is-disabled {
 
 /* 小提示對話框（例如：這天查不到這班航班） */
 .dialog--small {
-  width: min(400px, calc(100vw - 32px));
+  --dialog-width: 400px;
 }
 
 .dialog--small .dialog__actions {
@@ -2383,4 +2408,44 @@ a.btn.is-disabled {
   body[data-view="trip"] .account__button:not(.is-confirming) .account__name {
     display: none;
   }
+}
+
+/* 分享對話框：連結與「複製連結」同一行 */
+.link-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.link-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.link-row .btn {
+  flex-shrink: 0;
+}
+
+/* 「要分享哪個連結？」的選項 */
+.share-choose {
+  display: grid;
+  gap: 8px;
+}
+
+.share-choose__item {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.share-choose__item:hover,
+.share-choose__item:focus-visible {
+  background: var(--butter);
 }
