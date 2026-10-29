@@ -28,11 +28,13 @@ document.addEventListener("DOMContentLoaded", () => {
   Trip.picker.render();
   /* 匯出至 Notion 要在路由前處理「從 Notion 登入回來」的網址 */
   Trip.notionExport.init();
-  Trip.router.init();
+  Trip.account.init();
 
-  /* 知道網站開了哪些功能後（共編、航班查詢、Notion 匯出）重畫行程，按鈕才會出現 */
+  /* 知道網站開了哪些功能後（共編、航班查詢、Notion 匯出、Google 登入）重畫行程，按鈕才會出現
+     先開始讀狀態再啟動路由：專屬邀請連結要等知道有沒有登入 */
   Trip.api.onStatus(() => {
     if (Trip.state.destination && document.body.dataset.view === "trip") Trip.editor.rerender();
   });
   Trip.api.init();
+  Trip.router.init();
 });

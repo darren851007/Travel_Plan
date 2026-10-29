@@ -2228,3 +2228,67 @@ a.btn.is-disabled {
   color: var(--ink-soft);
 }
 
+/* ---------- Google 帳號（上方選單） ---------- */
+.account {
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.account__button {
+  max-width: 11em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- 專屬邀請（擁有者） ---------- */
+.invite {
+  display: grid;
+  gap: 8px;
+}
+
+.invite-list {
+  display: grid;
+  gap: 10px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.invite-item {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+}
+
+.invite-item__head {
+  display: grid;
+  gap: 2px;
+}
+
+.invite-item__link {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 6px 10px;
+  border: var(--line) solid var(--ink);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  font: inherit;
+  font-size: 0.85rem;
+  color: inherit;
+}
+
+.invite-item__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.invite-item__actions .check-row {
+  margin-right: auto;
+}

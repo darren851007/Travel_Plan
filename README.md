@@ -21,7 +21,7 @@
   - 準備清單：分成「📝 待辦事項」（要訂位、要購買的）與「🧳 行李準備」（要帶的東西）兩張卡片，各自有進度條與＋ 新增項目；編輯時可以改「類別」，存檔後自動移到那張卡片；刪除（打勾狀態各裝置自己記）
 - **刪除行程**：「我的旅行」卡片上的「刪除」，或行程頁的「刪除這趟行程」，都要按兩次確認
 - **分享給好友**：產生唯讀連結（行程壓縮在連結裡，不經過伺服器），好友可以「加入我的行程」存一份；預設不包含訂房編號、電話、旅客與座位，也不含照片
-- **即時共同編輯**（Cloudflare 版）：分享對話框「建立共編連結」，拿到連結的人不用登入就能一起改，修改 1 秒內出現、顯示誰在線上；「離開共編」只會從自己的清單移除
+- **即時共同編輯**（Cloudflare 版）：用 Google 登入後在分享對話框「建立共編行程」，建立的人是擁有者；擁有者替每個人產生**專屬邀請連結**（可以一起編輯，或不勾選就只能看），對方用 Google 登入後連結就綁定他的帳號，轉給別人也打不開；擁有者可以隨時改權限或撤銷。只有擁有者能把行程分享出去。修改 1 秒內出現、顯示誰在線上；「離開共編」只會從自己的清單移除。改版前建立的舊共編連結照舊可用
 - **自動帶入航班資料**（Cloudflare 版，需設定 `AERODATABOX_KEY`）：依航班號碼＋航班日期查 AeroDataBox，帶入機型、出發／抵達航廈、起降時間與飛行時間；那天查不到時跳出提示，可以選擇帶入最近一班的資料或自己填
 - **匯出至 Notion**（Cloudflare 版，需設定 Notion 公開整合）：行程頁按「匯出至 Notion」→ 用 Notion 登入 → 選一個頁面 → 匯出
 - **照片**：封面與景點照片先在瀏覽器縮小成最長邊 1600 像素的 JPEG；自己的行程存在這台裝置（IndexedDB，不上傳），共編行程存在共編房間，大家都看得到
@@ -78,7 +78,8 @@ server/                 Cloudflare Worker
   index.js              進入點：/api 路由，其餘交給網頁檔案
   room.js               共編房間（Durable Object：保存行程與照片、WebSocket 推播、版本衝突）
   api/status.js         網站開了哪些功能、是否已用 Notion 登入
-  api/rooms.js          建立／讀取共編行程、WebSocket 連線、照片
+  api/rooms.js          建立／讀取共編行程、WebSocket 連線、照片、專屬邀請與權限
+  api/auth/google/      Google 登入（共編行程的擁有者與受邀成員）
   api/flights.js        查詢真實航班
   api/auth/             login、callback、logout（Notion 登入）
   api/notion/           pages（選頁面）、export（建立匯出頁面、分批寫入表格）
@@ -90,13 +91,17 @@ scripts/build.mjs       打包網頁到 dist/site（只含網頁檔案）
 ## 部署
 
 1. 註冊 [Cloudflare](https://dash.cloudflare.com/sign-up)，在專案資料夾執行 `npx wrangler login`
-2. `npm install`，然後 `npm run deploy`，取得網址（例如 `https://travel-plan.<你的帳號>.workers.dev`）
-   - 到這一步就能用：自己的行程、分享、**即時共同編輯**
-3. 匯出至 Notion：到 [Notion 開發者頁面](https://app.notion.com/developers/connections) 建立「**公開（Public）**」連線
-   - Redirect URI：`https://<你的網址>/api/auth/callback`
-   - 隱私權政策／使用條款：`https://<你的網址>/privacy`、`https://<你的網址>/privacy#terms`
+2. `npm install`，然後 `npm run deploy`，取得網址（目前是 `https://travel-plan.darrentrip.workers.dev`）
+   - 到這一步就能用：自己的行程、分享
+3. 即時共同編輯要用 Google 登入（免費）：到 [Google Cloud Console](https://console.cloud.google.com/) 建一個專案
+   - 「API 和服務」→「OAuth 同意畫面」：使用者類型選「外部」，填應用程式名稱與 Email；只需要 `openid`、`email`、`profile`（不需要 Google 審核）。設定完按「發布應用程式」，否則只有測試使用者名單上的帳號能登入
+   - 「憑證」→「建立憑證」→「OAuth 用戶端 ID」→ 類型「網頁應用程式」，已授權的重新導向 URI：`https://travel-plan.darrentrip.workers.dev/api/auth/google/callback`（本機測試再加 `http://localhost:8787/api/auth/google/callback`）
+   - 把用戶端 ID、用戶端密鑰設成 Cloudflare 密鑰 `GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`（方法同下面第 5 步）
+4. 匯出至 Notion：到 [Notion 開發者頁面](https://app.notion.com/developers/connections) 建立「**公開（Public）**」連線
+   - Redirect URI：`https://travel-plan.darrentrip.workers.dev/api/auth/callback`
+   - 隱私權政策／使用條款：`https://travel-plan.darrentrip.workers.dev/privacy`、`https://travel-plan.darrentrip.workers.dev/privacy#terms`
    - 權限：讀取內容、插入內容
-4. 把 Notion 給的 Client ID、Client Secret 設成 Cloudflare 密鑰（兩種方法擇一，手機用第一種）：
+5. 把 Notion 給的 Client ID、Client Secret 設成 Cloudflare 密鑰（兩種方法擇一，手機用第一種）：
    - **Cloudflare 網頁**：Workers 和 Pages → travel-plan → 設定 →「變數和密碼」→ 新增兩筆「密碼（Secret）」：`NOTION_CLIENT_ID`、`NOTION_CLIENT_SECRET`，按部署
    - **電腦終端機**：`npx wrangler secret put NOTION_CLIENT_ID`、`npx wrangler secret put NOTION_CLIENT_SECRET`
    - 選填：`SESSION_SECRET`（加密登入 Cookie 用；不設就從 Client Secret 衍生）、`AERODATABOX_KEY`（自動帶入機型與航廈）
@@ -109,6 +114,6 @@ scripts/build.mjs       打包網頁到 dist/site（只含網頁檔案）
 ## 使用者怎麼用
 
 1. 打開網址 → 「＋ 新增行程」建立一趟旅程，在行程頁新增航班、景點、住宿
-2. 要一起規劃：「分享給好友」→「建立共編連結」，把連結傳給旅伴
+2. 要一起規劃：用 Google 登入 →「分享給好友」→「建立共編行程」→ 替每位旅伴各產生一條專屬邀請連結傳給他
 3. 規劃好了：「匯出至 Notion」→ 用 Notion 登入，授權時勾選一個頁面（例如「旅行」）→ 選它 → 匯出
 4. iPhone：Safari 分享 → 加入主畫面，就能像 App 一樣開啟

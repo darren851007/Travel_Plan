@@ -8,3 +8,7 @@ SESSION_SECRET=
 AERODATABOX_KEY=
 # 選填：金鑰的申請管道 direct / apimarket / rapidapi（不填會自動判斷）
 AERODATABOX_GATEWAY=
+# 共編行程的 Google 登入：Google Cloud Console → API 和服務 → 憑證 → 建立「OAuth 用戶端 ID（網頁應用程式）」
+# 授權重新導向 URI：http://localhost:8787/api/auth/google/callback（本機）、https://travel-plan.darrentrip.workers.dev/api/auth/google/callback（正式）
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=

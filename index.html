@@ -42,6 +42,7 @@
   <script defer src="js/modules/lodging.js"></script>
   <script defer src="js/modules/notion-export.js"></script>
   <script defer src="js/modules/add-item.js"></script>
+  <script defer src="js/modules/account.js"></script>
   <script defer src="js/modules/add-flight.js"></script>
   <script defer src="js/modules/new-trip.js"></script>
   <script defer src="js/modules/trip-delete.js"></script>
@@ -62,6 +63,10 @@
         <a class="nav-link" href="#flights">航班</a>
         <a class="nav-link" href="#itinerary">行程</a>
         <a class="nav-link" href="#prep">準備清單</a>
+      </div>
+      <!-- Google 帳號（共編行程用；網站有設定 Google 登入才出現） -->
+      <div class="account" id="account" hidden>
+        <button class="btn-edit account__button" type="button" id="account-button">用 Google 登入</button>
       </div>
     </nav>
   </header>
@@ -105,6 +110,7 @@
         <span class="presence__dot" aria-hidden="true"></span>
         <span id="presence-text"></span>
         <button class="btn-edit" type="button" id="presence-name">改名字</button>
+        <button class="btn-edit" type="button" id="presence-login" hidden>用 Google 登入</button>
       </div>
 
       <!-- 分享給好友；打開好友分享的連結時改成顯示「誰分享的」 -->
@@ -237,12 +243,6 @@
 
       <div class="dialog__row">
         <label class="field">
-          <span class="field__label">出發時間</span>
-          <input id="add-item-time" name="time" type="time" step="300">
-        </label>
-        <label class="field">
-      <div class="dialog__row">
-        <label class="field">
           <span class="field__label">出發地點</span>
           <input id="add-item-from" name="from" maxlength="100" autocomplete="off" placeholder="例如：飯店">
         </label>
@@ -252,10 +252,22 @@
         </label>
       </div>
 
+      <div class="dialog__row">
+        <label class="field">
+          <span class="field__label">出發時間</span>
+          <input id="add-item-time" name="time" type="time" step="300">
+        </label>
+        <label class="field">
           <span class="field__label">抵達時間</span>
           <input id="add-item-end" name="end" type="time" step="300">
         </label>
       </div>
+
+      <fieldset class="dialog__fieldset field legs-field">
+        <legend class="field__label">中途停靠</legend>
+        <ol class="legs" id="add-item-stops"></ol>
+        <button class="btn btn--ghost btn--small legs__add" type="button" id="add-item-stop-add">＋ 新增中途停靠</button>
+      </fieldset>
 
       <label class="field">
         <span class="field__label">預計停留</span>
@@ -263,12 +275,6 @@
         <span class="field__hint" id="add-item-time-hint">結束時間＝抵達時間＋預計停留（沒填抵達時間就從出發時間算）</span>
         <span class="time-calc" id="add-item-end-calc" hidden></span>
       </label>
-      <fieldset class="dialog__fieldset field legs-field">
-        <legend class="field__label">中途停靠</legend>
-        <ol class="legs" id="add-item-stops"></ol>
-        <button class="btn btn--ghost btn--small legs__add" type="button" id="add-item-stop-add">＋ 新增中途停靠</button>
-      </fieldset>
-
 
       <label class="field">
         <span class="field__label">城市</span>
@@ -365,9 +371,24 @@
       <!-- 一起編輯（部署在 Cloudflare 時才有） -->
       <div class="share-collab" id="share-collab" hidden>
         <p class="field__label">一起編輯</p>
-        <p class="field__hint" id="share-collab-hint">建立共編連結後，拿到連結的人都能即時一起修改這趟行程（不用登入）。</p>
+        <p class="field__hint" id="share-collab-hint"></p>
         <div class="btn-row">
-          <button class="btn" type="button" id="share-collab-create">建立共編連結</button>
+          <button class="btn" type="button" id="share-collab-create">建立共編行程</button>
+        </div>
+        <!-- 擁有者：替每個人產生專屬邀請連結 -->
+        <div class="invite" id="share-invite" hidden>
+          <label class="field">
+            <span class="field__label">要邀請誰（方便你自己辨認）</span>
+            <input id="share-invite-label" maxlength="30" autocomplete="off" placeholder="例如：小明">
+          </label>
+          <label class="check-row">
+            <input type="checkbox" id="share-invite-edit" checked>
+            <span>可以一起編輯（不勾選就只能看）</span>
+          </label>
+          <div class="btn-row">
+            <button class="btn" type="button" id="share-invite-create">產生專屬邀請連結</button>
+          </div>
+          <ul class="invite-list" id="share-invite-list"></ul>
         </div>
         <label class="field" id="share-collab-field" hidden>
           <span class="field__label">共編連結（拿到的人都能編輯）</span>
@@ -386,6 +407,18 @@
         <button class="btn" type="button" id="share-native" hidden>分享…</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- 請對方用 Google 登入 -->
+  <dialog class="dialog dialog--small" id="login-dialog" aria-labelledby="login-title">
+    <div class="dialog__form">
+      <h3 class="dialog__title" id="login-title">需要登入</h3>
+      <p id="login-text"></p>
+      <div class="btn-row dialog__actions">
+        <button class="btn btn--ghost" type="button" id="login-cancel">取消</button>
+        <button class="btn" type="button" id="login-go">用 Google 登入</button>
+      </div>
+    </div>
   </dialog>
 
   <!-- 新增航班對話框 -->

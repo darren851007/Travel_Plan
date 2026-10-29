@@ -1,6 +1,7 @@
 /* ============================================================
    畫面切換：#/ ＝ 選擇行程，#/my-xxxx ＝ 某趟行程，#/share/… ＝ 好友分享的行程（唯讀），
-   #/room/… ＝ 共編行程的邀請連結（加入後網址換成 #/room-…）
+   #/room/… ＝ 舊的共編連結、#/join/房間/邀請碼 ＝ 專屬邀請連結（要先用 Google 登入）
+   加入後網址都換成 #/room-…
    用網址記錄目前畫面，可以加書籤、按上一頁返回
    ============================================================ */
 window.Trip = window.Trip || {};
@@ -28,6 +29,26 @@ Trip.router = {
       } catch (err) {
         id = null;
         Trip.addItem?.toast(err.message || "這個分享連結打不開");
+      }
+    }
+
+    /* 專屬邀請：沒登入就先請他登入，登入完會回到這個網址 */
+    if (id?.startsWith("join/")) {
+      const [roomId, code] = id.slice("join/".length).split("/");
+      await Trip.api.ready;
+      if (!Trip.api.user()) {
+        id = null;
+        Trip.account?.ask("用 Google 登入後就能加入這趟共編行程。這條邀請連結只能給一個帳號使用。");
+      } else {
+        try {
+          const dest = await Trip.collab.accept(roomId, code);
+          id = dest.id;
+          history.replaceState(null, "", `${location.pathname}${location.search}#/${encodeURIComponent(id)}`);
+          Trip.picker.render();
+        } catch (err) {
+          id = null;
+          Trip.addItem?.toast(err.message || "這個邀請連結打不開");
+        }
       }
     }
 

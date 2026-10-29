@@ -5,6 +5,10 @@
    - 版本號不符（同時有人改過）時回傳最新內容，讓網頁重新套用自己的修改
    - 照片（封面、每個景點）：存在房間裡（photo:<id>），行程裡用「room:<id>」指到它
      換照片、刪掉景點時，沒人用的舊照片會一併刪除
+   - 權限（access）：建立的人是擁有者；擁有者替每個人產生專屬邀請連結（可編輯或唯讀），
+     第一次用它登入的 Google 帳號就綁定這條連結，別的帳號拿到也進不來；擁有者可以撤銷
+     登入的帳號由 server/api/rooms.js 從 Cookie 讀出，放在 X-Trip-User 傳進來
+     舊的共編行程（沒有 access）維持「知道連結的人都能編輯」
    使用 Hibernation API：沒有訊息時不佔執行時間，免費額度內即可使用
    ============================================================ */
 import { DurableObject } from "cloudflare:workers";
@@ -42,6 +46,40 @@ function photoRefs(trip) {
   return ids;
 }
 
+const MAX_INVITES = 50;
+const ROLES = ["edit", "view"];
+const randomCode = () => crypto.randomUUID().replace(/-/g, "");
+
+/* server/api/rooms.js 放進來的登入帳號 */
+function readUser(request) {
+  try {
+    const user = JSON.parse(decodeURIComponent(request.headers.get("X-Trip-User") || ""));
+    return user?.id ? { id: String(user.id), name: String(user.name || ""), email: String(user.email || "") } : null;
+  } catch {
+    return null;
+  }
+}
+
+/* owner：擁有者；edit：可以編輯；view：唯讀；null：沒有權限 */
+function roleOf(access, user) {
+  if (!access) return "edit";
+  if (!user) return null;
+  if (access.owner.id === user.id) return "owner";
+  return Object.values(access.invites).find((inv) => inv.user?.id === user.id)?.role || null;
+}
+
+const canWrite = (role) => role === "owner" || role === "edit";
+
+/* 給擁有者看的成員與邀請清單 */
+function accessView(access) {
+  return {
+    owner: access.owner,
+    invites: Object.entries(access.invites)
+      .map(([id, inv]) => ({ id, ...inv }))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+  };
+}
+
 /* 只接受看起來像行程的資料 */
 function validTrip(trip) {
   return Boolean(
@@ -54,21 +92,45 @@ export class TripRoom extends DurableObject {
     return (await this.ctx.storage.get("state")) || null;
   }
 
+  async access() {
+    return (await this.ctx.storage.get("access")) || null;
+  }
+
   async fetch(request) {
     const url = new URL(request.url);
+    const user = readUser(request);
 
-    /* 建立房間：只有空房間才能寫入第一份行程 */
+    /* 建立房間：只有空房間才能寫入第一份行程；建立的人是擁有者 */
     if (url.pathname.endsWith("/init") && request.method === "POST") {
       if (await this.state()) return Response.json({ error: "房間已經存在" }, { status: 409 });
+      if (!user) return Response.json({ error: "請先用 Google 登入" }, { status: 401 });
       const { trip } = await request.json();
       if (!validTrip(trip)) return Response.json({ error: "行程資料不完整" }, { status: 400 });
       const state = { version: 1, trip, updatedAt: new Date().toISOString() };
-      await this.ctx.storage.put("state", state);
-      return Response.json(state);
+      await this.ctx.storage.put({ state, access: { owner: user, invites: {} } });
+      return Response.json({ ...state, role: "owner", managed: true });
     }
 
     const state = await this.state();
     if (!state) return Response.json({ error: "找不到這個共編行程" }, { status: 404 });
+    const access = await this.access();
+
+    /* 用專屬邀請連結加入 */
+    if (url.pathname.endsWith("/join") && request.method === "POST") return this.join(request, state, access, user);
+
+    const role = roleOf(access, user);
+    if (!role) {
+      return user
+        ? Response.json({ error: "你沒有這趟共編行程的權限，請向擁有者要一條專屬邀請連結" }, { status: 403 })
+        : Response.json({ error: "請先用 Google 登入" }, { status: 401 });
+    }
+
+    /* 擁有者：看成員與邀請、產生邀請、改權限、撤銷 */
+    if (url.pathname.endsWith("/access")) {
+      if (role !== "owner" || !access) return Response.json({ error: "只有擁有者可以管理邀請" }, { status: 403 });
+      if (request.method === "GET") return Response.json(accessView(access));
+      return this.manage(request, access);
+    }
 
     /* 讀照片 */
     const photo = url.pathname.match(/\/photos\/([^/]+)$/);
@@ -88,6 +150,7 @@ export class TripRoom extends DurableObject {
 
     /* 換照片（POST 照片內容）或移除（DELETE）：?target=cover（封面）或景點的 uid */
     if (/\/(cover|photos)$/.test(url.pathname) && (request.method === "POST" || request.method === "DELETE")) {
+      if (!canWrite(role)) return Response.json({ error: "你只能看這趟行程，不能編輯" }, { status: 403 });
       const target = url.pathname.endsWith("/cover") ? "cover" : url.searchParams.get("target") || "";
       return this.setPhoto(request, state, target);
     }
@@ -99,12 +162,78 @@ export class TripRoom extends DurableObject {
       }
       const [client, server] = Object.values(new WebSocketPair());
       this.ctx.acceptWebSocket(server);
-      server.serializeAttachment({ id: crypto.randomUUID(), name: "訪客" });
+      /* 有權限管理的房間：名字用 Google 帳號的名字 */
+      server.serializeAttachment({ id: crypto.randomUUID(), name: user?.name || "訪客", userId: access ? user.id : null, role });
       return new Response(null, { status: 101, webSocket: client });
     }
 
     /* 讀取目前內容 */
-    return Response.json(state);
+    return Response.json({ ...state, role, managed: Boolean(access) });
+  }
+
+  /* 加入：第一次使用的帳號綁定這條邀請；已經綁定別的帳號就拒絕 */
+  async join(request, state, access, user) {
+    if (!access) return Response.json({ ...state, role: "edit", managed: false });
+    if (!user) return Response.json({ error: "請先用 Google 登入" }, { status: 401 });
+    const { code } = await request.json().catch(() => ({}));
+    const invite = Object.values(access.invites).find((inv) => typeof code === "string" && inv.code === code);
+    if (!invite) return Response.json({ error: "這個邀請連結已經失效，可能被擁有者撤銷了" }, { status: 404 });
+
+    const role = roleOf(access, user);
+    if (!role) {
+      if (invite.user) return Response.json({ error: "這個邀請連結已經被其他帳號使用，請向擁有者要一條你自己的連結" }, { status: 403 });
+      invite.user = user;
+      invite.joinedAt = new Date().toISOString();
+      await this.ctx.storage.put("access", access);
+    }
+    return Response.json({ ...state, role: roleOf(access, user), managed: true });
+  }
+
+  /* action：invite（產生邀請）、role（改成可編輯／唯讀）、revoke（撤銷） */
+  async manage(request, access) {
+    const body = await request.json().catch(() => ({}));
+    const invite = access.invites[body.inviteId];
+
+    if (body.action === "invite") {
+      if (Object.keys(access.invites).length >= MAX_INVITES) {
+        return Response.json({ error: `一趟行程最多 ${MAX_INVITES} 條邀請` }, { status: 413 });
+      }
+      access.invites[randomCode().slice(0, 12)] = {
+        label: String(body.label || "").trim().slice(0, 30) || "朋友",
+        role: ROLES.includes(body.role) ? body.role : "edit",
+        code: randomCode(),
+        createdAt: new Date().toISOString(),
+        user: null,
+      };
+    } else if (body.action === "role" && invite && ROLES.includes(body.role)) {
+      invite.role = body.role;
+      /* 正在線上的人立刻換權限 */
+      for (const ws of this.socketsOf(invite.user)) {
+        ws.serializeAttachment({ ...ws.deserializeAttachment(), role: body.role });
+        this.send(ws, { type: "role", role: body.role });
+      }
+    } else if (body.action === "revoke" && invite) {
+      delete access.invites[body.inviteId];
+      /* 正在線上的人立刻斷線 */
+      for (const ws of this.socketsOf(invite.user)) {
+        try {
+          ws.close(4003, "removed");
+        } catch {
+          /* 已經斷線 */
+        }
+      }
+    } else {
+      return Response.json({ error: "不知道要做什麼" }, { status: 400 });
+    }
+
+    await this.ctx.storage.put("access", access);
+    if (body.action === "revoke") this.presence();
+    return Response.json(accessView(access));
+  }
+
+  socketsOf(user) {
+    if (!user) return [];
+    return this.ctx.getWebSockets().filter((ws) => ws.deserializeAttachment()?.userId === user.id);
   }
 
   /* 換照片：照片存好後改行程裡的指向，版本號 +1 並通知所有人 */
@@ -169,7 +298,11 @@ export class TripRoom extends DurableObject {
   }
 
   presence() {
-    const people = this.ctx.getWebSockets().map((ws) => ws.deserializeAttachment()).filter(Boolean);
+    const people = this.ctx
+      .getWebSockets()
+      .map((ws) => ws.deserializeAttachment())
+      .filter(Boolean)
+      .map(({ id, name }) => ({ id, name }));
     this.broadcast({ type: "presence", people });
   }
 
@@ -186,9 +319,10 @@ export class TripRoom extends DurableObject {
     }
 
     if (msg.type === "hello") {
-      const me = ws.deserializeAttachment() || { id: crypto.randomUUID() };
-      ws.serializeAttachment({ ...me, name: String(msg.name || "").trim().slice(0, 30) || "訪客" });
-      this.send(ws, { type: "state", ...(await this.state()), you: me.id });
+      const me = ws.deserializeAttachment() || { id: crypto.randomUUID(), role: "edit" };
+      /* 用 Google 帳號登入的人名字固定；舊的共編行程才用自己輸入的名字 */
+      if (!me.userId) ws.serializeAttachment({ ...me, name: String(msg.name || "").trim().slice(0, 30) || "訪客" });
+      this.send(ws, { type: "state", ...(await this.state()), you: me.id, role: me.role, managed: Boolean(me.userId) });
       this.presence();
       return;
     }
@@ -200,6 +334,11 @@ export class TripRoom extends DurableObject {
 
     /* 存檔：版本號相同才接受；不同就把最新內容給對方重新套用 */
     if (msg.type === "save") {
+      /* 改版前就連上的人沒有 role，那時只有舊的共編行程（大家都能編輯） */
+      if (!canWrite(ws.deserializeAttachment()?.role ?? "edit")) {
+        this.send(ws, { type: "error", requestId: msg.requestId, error: "你只能看這趟行程，不能編輯" });
+        return;
+      }
       const state = await this.state();
       if (msg.baseVersion !== state.version) {
         this.send(ws, { type: "conflict", requestId: msg.requestId, ...state });
