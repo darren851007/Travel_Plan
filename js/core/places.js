@@ -108,9 +108,15 @@ Trip.places = {
     return q ? options : [{ label: "不指定城市", detail: "之後再填", value: null }, ...options];
   },
 
+  /* 常用清單裡的同一個城市：GeoNames 的名稱常多一個「市」（京都市、福岡市），比對時忽略 */
+  knownCity(name, countryCode) {
+    const plain = (n) => String(n || "").replace(/市$/, "");
+    return this.data?.cities.find((c) => plain(c.name) === plain(name) && this.data.countries[c.country]?.code === countryCode);
+  },
+
   /* 常用城市：機場以 cities.json 的人工指定為準（例如京都 → 關西 KIX，不是最近的伊丹） */
   curated(name, place) {
-    const known = this.data.cities.find((c) => c.name === name && this.data.countries[c.country]?.code === place.country);
+    const known = this.knownCity(name, place.country);
     return known?.airport ? { ...place, airport: known.airport } : place;
   },
 };

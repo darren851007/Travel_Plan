@@ -235,7 +235,8 @@ Trip.newTrip = {
       return { ...countryOfDay, city, theme: `${where}自由行`, items: [{ time: "10:00", title: `${where}景點（待填）`, note: "", transport: [], must: false }] };
     });
 
-    const first = this.data.cities.find((c) => c.name === city && c.country === country) || {};
+    /* 常用城市的專屬插圖 */
+    const first = Trip.places.knownCity(city, code) || {};
 
     return {
       id: meta.id || code.toLowerCase(),
