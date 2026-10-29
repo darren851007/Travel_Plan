@@ -43,6 +43,7 @@
   <script defer src="js/modules/notion-export.js"></script>
   <script defer src="js/modules/add-item.js"></script>
   <script defer src="js/modules/account.js"></script>
+  <script defer src="js/modules/requests.js"></script>
   <script defer src="js/modules/add-flight.js"></script>
   <script defer src="js/modules/new-trip.js"></script>
   <script defer src="js/modules/trip-delete.js"></script>
@@ -111,11 +112,13 @@
         <span id="presence-text"></span>
         <button class="btn-edit" type="button" id="presence-name">改名字</button>
         <button class="btn-edit" type="button" id="presence-login" hidden>用 Google 登入</button>
+        <button class="btn-edit" type="button" id="presence-ask" hidden>申請一起編輯</button>
       </div>
 
       <!-- 分享給好友；打開好友分享的連結時改成顯示「誰分享的」 -->
       <div class="trip-share" id="trip-share-bar">
         <button class="btn btn--small" type="button" id="trip-share">分享給好友</button>
+        <button class="btn btn--ghost btn--small" type="button" id="trip-requests" hidden>申請清單</button>
         <button class="btn btn--ghost btn--small" type="button" id="trip-export" hidden>匯出至 Notion</button>
       </div>
       <div class="shared-banner" id="shared-banner" hidden>
@@ -362,11 +365,14 @@
         <span>包含訂房編號、電話、旅客與座位</span>
       </label>
 
-      <label class="field">
+      <label class="field" id="share-link-field">
         <span class="field__label">分享連結</span>
         <input id="share-link" readonly>
       </label>
-      <p class="field__hint">好友打開是唯讀，可以「加入我的行程」存一份到自己的手機。行程內容只在連結裡，不會上傳到任何地方；之後修改要再分享一次。</p>
+      <div class="btn-row" id="share-login" hidden>
+        <button class="btn" type="button" id="share-login-button">用 Google 登入後分享</button>
+      </div>
+      <p class="field__hint" id="share-link-hint">好友打開是唯讀，可以「加入我的行程」存一份到自己的手機。行程內容只在連結裡，不會上傳到任何地方；之後修改要再分享一次。</p>
 
       <!-- 一起編輯（部署在 Cloudflare 時才有） -->
       <div class="share-collab" id="share-collab" hidden>
@@ -386,6 +392,7 @@
             <span>可以一起編輯（不勾選就只能看）</span>
           </label>
           <div class="btn-row">
+            <button class="btn btn--ghost" type="button" id="share-invite-cancel" hidden>取消</button>
             <button class="btn" type="button" id="share-invite-create">產生專屬邀請連結</button>
           </div>
           <ul class="invite-list" id="share-invite-list"></ul>
@@ -409,16 +416,64 @@
     </form>
   </dialog>
 
-  <!-- 請對方用 Google 登入 -->
-  <dialog class="dialog dialog--small" id="login-dialog" aria-labelledby="login-title">
+  <!-- 擁有者：申請清單（這趟行程所有還沒處理的申請；沒有申請時按鈕隱藏） -->
+  <dialog class="dialog" id="requests-dialog" aria-labelledby="requests-title">
     <div class="dialog__form">
-      <h3 class="dialog__title" id="login-title">需要登入</h3>
-      <p id="login-text"></p>
+      <h3 class="dialog__title" id="requests-title">申請清單</h3>
+      <p class="field__hint">好友按「加入我的行程」、只能看的成員按「申請一起編輯」都會出現在這裡。同意後他就是這趟行程的共編成員。</p>
+      <ul class="invite-list" id="requests-list"></ul>
+      <p class="notion__msg" id="requests-msg" role="status" aria-live="polite"></p>
       <div class="btn-row dialog__actions">
-        <button class="btn btn--ghost" type="button" id="login-cancel">取消</button>
-        <button class="btn" type="button" id="login-go">用 Google 登入</button>
+        <button class="btn btn--ghost" type="button" id="requests-close">關閉</button>
       </div>
     </div>
+  </dialog>
+
+  <!-- 擁有者：別人申請加入、申請一起編輯，打開那趟行程時跳出來 -->
+  <dialog class="dialog dialog--small" id="request-dialog" aria-labelledby="request-title">
+    <div class="dialog__form">
+      <h3 class="dialog__title" id="request-title">有人想加入</h3>
+      <p id="request-text"></p>
+      <label class="check-row">
+        <input type="checkbox" id="request-edit">
+        <span>可以一起編輯（不勾選就只能看）</span>
+      </label>
+      <p class="field__hint" id="request-hint"></p>
+      <p class="notion__msg" id="request-msg" role="status" aria-live="polite"></p>
+      <div class="btn-row dialog__actions">
+        <button class="btn btn--ghost" type="button" id="request-later">稍後再說</button>
+        <button class="btn btn--ghost btn--danger" type="button" id="request-decline">拒絕</button>
+        <button class="btn" type="button" id="request-approve">同意</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- 第一次打開專屬邀請連結、申請加入好友的行程：用 Google 登入，或輸入名字以訪客繼續 -->
+  <dialog class="dialog dialog--small" id="join-dialog" aria-labelledby="join-title">
+    <form class="dialog__form" id="join-form" novalidate>
+      <h3 class="dialog__title" id="join-title">加入共編行程</h3>
+      <p id="join-text"></p>
+
+      <div class="btn-row">
+        <button class="btn" type="button" id="join-google">用 Google 登入</button>
+      </div>
+      <p class="field__hint">換手機或電腦也能打開，只要登入同一個 Google 帳號。</p>
+
+      <p class="join-or" aria-hidden="true">或</p>
+
+      <label class="field">
+        <span class="field__label">輸入名字繼續</span>
+        <input id="join-name" maxlength="30" autocomplete="nickname" placeholder="例如：小明">
+        <span class="field__hint">不用帳號。只認這個瀏覽器：換手機、清除瀏覽器資料後，要請擁有者重新邀請。</span>
+      </label>
+
+      <p class="notion__msg" id="join-msg" role="status" aria-live="polite"></p>
+
+      <div class="btn-row dialog__actions">
+        <button class="btn btn--ghost" type="button" id="join-cancel">取消</button>
+        <button class="btn" type="submit" id="join-guest">用這個名字繼續</button>
+      </div>
+    </form>
   </dialog>
 
   <!-- 新增航班對話框 -->

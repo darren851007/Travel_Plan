@@ -1,6 +1,6 @@
 /* ============================================================
    畫面切換：#/ ＝ 選擇行程，#/my-xxxx ＝ 某趟行程，#/share/… ＝ 好友分享的行程（唯讀），
-   #/room/… ＝ 舊的共編連結、#/join/房間/邀請碼 ＝ 專屬邀請連結（要先用 Google 登入）
+   #/room/… ＝ 舊的共編連結、#/join/房間/邀請碼 ＝ 專屬邀請連結（用 Google 登入或輸入名字）
    加入後網址都換成 #/room-…
    用網址記錄目前畫面，可以加書籤、按上一頁返回
    ============================================================ */
@@ -36,10 +36,13 @@ Trip.router = {
     if (id?.startsWith("join/")) {
       const [roomId, code] = id.slice("join/".length).split("/");
       await Trip.api.ready;
-      if (!Trip.api.user()) {
-        id = null;
-        Trip.account?.ask("用 Google 登入後就能加入這趟共編行程。這條邀請連結只能給一個帳號使用。");
-      } else {
+      const known = Trip.destinations.find((d) => d.room === roomId);
+      if (known) {
+        /* 已經加入過：直接打開 */
+        id = known.id;
+        history.replaceState(null, "", `${location.pathname}${location.search}#/${encodeURIComponent(id)}`);
+      } else if (Trip.account.takeGoogle(`join:${roomId}/${code}`)) {
+        /* 剛在邀請對話框按了 Google 登入、登入完回來：直接加入 */
         try {
           const dest = await Trip.collab.accept(roomId, code);
           id = dest.id;
@@ -49,6 +52,10 @@ Trip.router = {
           id = null;
           Trip.addItem?.toast(err.message || "這個邀請連結打不開");
         }
+      } else {
+        /* 第一次打開：問要用 Google 登入，還是輸入名字繼續 */
+        id = null;
+        Trip.account.askJoin(roomId, code);
       }
     }
 

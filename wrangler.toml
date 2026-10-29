@@ -14,6 +14,15 @@ binding = "ASSETS"
 name = "TRIP_ROOM"
 class_name = "TripRoom"
 
+# 擁有者的收件匣：別人申請加入或申請一起編輯（每個 Google 帳號一個）
+[[durable_objects.bindings]]
+name = "OWNER_INBOX"
+class_name = "OwnerInbox"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["TripRoom"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["OwnerInbox"]

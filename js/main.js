@@ -13,6 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
     Trip.addItem,
     Trip.addFlight,
     Trip.sharePanel,
+    Trip.requests,
   ];
 
   Trip.art.mount();

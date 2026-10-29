@@ -71,6 +71,28 @@
   }
 }
 
+/* 手機：行程名稱太長時截斷，讓右上角的帳號（👤）留在畫面裡 */
+.brand {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.brand__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-links,
+.account {
+  flex-shrink: 0;
+}
+
+@media (max-width: 560px) {
+  .nav-link {
+    padding: 4px 8px;
+  }
+}
+
 /* ---------- 區塊 ---------- */
 .section {
   padding-block: 36px;

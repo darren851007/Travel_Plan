@@ -2229,10 +2229,6 @@ a.btn.is-disabled {
 }
 
 /* ---------- Google 帳號（上方選單） ---------- */
-.account {
-  flex-shrink: 1;
-  min-width: 0;
-}
 
 .account__button {
   max-width: 11em;
@@ -2291,4 +2287,39 @@ a.btn.is-disabled {
 
 .invite-item__actions .check-row {
   margin-right: auto;
+}
+
+/* 邀請對話框：「或」分隔線 */
+.join-or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.join-or::before,
+.join-or::after {
+  content: "";
+  flex: 1;
+  border-top: 2px dashed var(--dash);
+}
+
+.account__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.account__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 手機的行程頁：選單已經有三個連結，帳號只留 👤（按「登出？」確認時仍顯示文字） */
+@media (max-width: 560px) {
+  body[data-view="trip"] .account__button:not(.is-confirming) .account__name {
+    display: none;
+  }
 }

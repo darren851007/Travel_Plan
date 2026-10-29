@@ -182,9 +182,9 @@ Trip.collab = {
     return Trip.rooms.receive(roomId, data.version, data.trip, data);
   },
 
-  /* 打開專屬邀請連結：要先登入；第一次使用就綁定這個帳號 */
-  async accept(roomId, code) {
-    const data = await Trip.api.request("POST", `rooms/${encodeURIComponent(roomId)}/join`, { code });
+  /* 打開專屬邀請連結：用 Google 帳號，或 guestName（以訪客加入）；第一次使用就綁定 */
+  async accept(roomId, code, { guestName } = {}) {
+    const data = await Trip.api.request("POST", `rooms/${encodeURIComponent(roomId)}/join`, { code, guestName });
     return Trip.rooms.receive(roomId, data.version, data.trip, data);
   },
 
@@ -361,6 +361,8 @@ Trip.collab = {
   /* ---------- 畫面上的「誰在線上」 ---------- */
 
   render() {
+    /* 只能看的成員：「申請一起編輯」要連上才出現 */
+    Trip.requests?.renderButtons();
     const bar = document.getElementById("presence");
     if (!bar) return;
     const dest = Trip.state.destination;
@@ -374,7 +376,7 @@ Trip.collab = {
     const login = document.getElementById("presence-login");
     if (login) login.hidden = this.denied !== "login";
     if (this.denied) {
-      text.textContent = this.denied === "login" ? "請先用 Google 登入，才能看到最新內容" : this.denied;
+      text.textContent = this.denied === "login" ? "請用 Google 登入，或請擁有者重新邀請，才能看到最新內容" : this.denied;
       return;
     }
     if (!this.connected) {

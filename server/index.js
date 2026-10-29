@@ -3,6 +3,7 @@
    - 匯出至 Notion：server/api/auth（Notion 登入）、server/api/notion（選頁面、建立匯出頁面）
    - Google 登入：server/api/auth/google（共編行程的擁有者與受邀成員）
    - 共同編輯：server/api/rooms.js 與 server/room.js（Durable Object）
+   - 分享的申請與擁有者的收件匣：server/api/shares.js 與 server/inbox.js（Durable Object）
    - 查詢真實航班：server/api/flights.js（AeroDataBox）
    ============================================================ */
 import * as status from "./api/status.js";
@@ -15,10 +16,12 @@ import * as googleLogout from "./api/auth/google/logout.js";
 import * as pages from "./api/notion/pages.js";
 import * as notionExport from "./api/notion/export.js";
 import { createRoom, roomRequest } from "./api/rooms.js";
+import * as shares from "./api/shares.js";
 import { lookup as flightLookup } from "./api/flights.js";
 import { errorJson } from "../lib/http.js";
 
 export { TripRoom } from "./room.js";
+export { OwnerInbox } from "./inbox.js";
 
 const routes = {
   "GET /api/status": status.onRequestGet,
@@ -32,6 +35,12 @@ const routes = {
   "POST /api/notion/export": notionExport.onRequestPost,
   "POST /api/notion/export-rows": notionExport.onRowsPost,
   "POST /api/rooms": createRoom,
+  "POST /api/shares": shares.createShare,
+  "POST /api/shares/request": shares.requestJoin,
+  "POST /api/shares/status": shares.requestStatus,
+  "POST /api/shares/cancel": shares.cancelRequest,
+  "GET /api/inbox": shares.listInbox,
+  "POST /api/inbox/resolve": shares.resolve,
   "POST /api/flights/lookup": flightLookup,
 };
 
@@ -45,7 +54,7 @@ export default {
 
     const room = url.pathname.match(/^\/api\/rooms\/([^/]+)(\/ws)?$/);
     if (room && request.method === "GET") return roomRequest(context, room[1], room[2] ? "ws" : "read");
-    const api = url.pathname.match(/^\/api\/rooms\/([^/]+)\/(join|access)$/);
+    const api = url.pathname.match(/^\/api\/rooms\/([^/]+)\/(join|access|ask)$/);
     if (api && (request.method === "POST" || (api[2] === "access" && request.method === "GET"))) {
       return roomRequest(context, api[1], "api");
     }

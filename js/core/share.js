@@ -2,6 +2,7 @@
    分享給好友：把整趟行程壓縮進連結（#/share/…），不經過任何伺服器
    好友打開是唯讀；可以「加入我的行程」存一份到自己的裝置
    預設不包含訂房編號、電話、旅客與座位，分享的人可以選擇要不要包含
+   有 Google 登入的網站：連結裡多一張擁有者憑證（token），好友按「加入我的行程」要送出申請，擁有者同意才加入
    ============================================================ */
 window.Trip = window.Trip || {};
 
@@ -9,7 +10,7 @@ Trip.share = {
   VERSION: 1,
 
   /* 只留下顯示行程需要的資料（去掉這台裝置的標記、照片等） */
-  pack(dest, { includePrivate = false, from = "" } = {}) {
+  pack(dest, { includePrivate = false, from = "", token = "" } = {}) {
     const flight = (f) => {
       if (!f) return undefined;
       const { uid, seat, passengers, ...rest } = f;
@@ -35,7 +36,7 @@ Trip.share = {
         : [...Trip.config.checklistBefore, ...dest.checklist, ...Trip.config.checklistAfter]
       ).map(({ id, text, hint, group }) => ({ id, text, hint, ...(group ? { group } : {}) })),
     };
-    return { v: this.VERSION, from: String(from || "").trim().slice(0, 30), trip };
+    return { v: this.VERSION, from: String(from || "").trim().slice(0, 30), trip, ...(token ? { r: token } : {}) };
   },
 
   /* 產生分享連結 */
@@ -78,6 +79,7 @@ Trip.share = {
       id: "shared",
       shared: true,
       sharedFrom: payload.from || "",
+      shareToken: typeof payload.r === "string" ? payload.r : "",
       flights: trip.flights || {},
       lodgings: trip.lodgings || [],
       checklist: trip.checklist || [],

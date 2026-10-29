@@ -6,8 +6,8 @@
    - 照片（封面、每個景點）：存在房間裡（photo:<id>），行程裡用「room:<id>」指到它
      換照片、刪掉景點時，沒人用的舊照片會一併刪除
    - 權限（access）：建立的人是擁有者；擁有者替每個人產生專屬邀請連結（可編輯或唯讀），
-     第一次用它登入的 Google 帳號就綁定這條連結，別的帳號拿到也進不來；擁有者可以撤銷
-     登入的帳號由 server/api/rooms.js 從 Cookie 讀出，放在 X-Trip-User 傳進來
+     第一次用它登入的 Google 帳號（或輸入名字的訪客：綁定那個瀏覽器）就綁定這條連結，別人拿到也進不來；擁有者可以撤銷
+     登入的帳號與訪客身分由 server/api/rooms.js 從 Cookie 讀出，放在 X-Trip-User（陣列）傳進來
      舊的共編行程（沒有 access）維持「知道連結的人都能編輯」
    使用 Hibernation API：沒有訊息時不佔執行時間，免費額度內即可使用
    ============================================================ */
@@ -50,23 +50,31 @@ const MAX_INVITES = 50;
 const ROLES = ["edit", "view"];
 const randomCode = () => crypto.randomUUID().replace(/-/g, "");
 
-/* server/api/rooms.js 放進來的登入帳號 */
-function readUser(request) {
+/* server/api/rooms.js 放進來的身分：Google 帳號在前、訪客在後（可能都沒有） */
+function readPeople(request) {
   try {
-    const user = JSON.parse(decodeURIComponent(request.headers.get("X-Trip-User") || ""));
-    return user?.id ? { id: String(user.id), name: String(user.name || ""), email: String(user.email || "") } : null;
+    const list = JSON.parse(decodeURIComponent(request.headers.get("X-Trip-User") || "[]"));
+    return (Array.isArray(list) ? list : [])
+      .filter((p) => p?.id)
+      .map((p) => ({ id: String(p.id), name: String(p.name || ""), email: String(p.email || ""), guest: Boolean(p.guest) }));
   } catch {
-    return null;
+    return [];
   }
 }
 
-/* owner：擁有者；edit：可以編輯；view：唯讀；null：沒有權限 */
-function roleOf(access, user) {
-  if (!access) return "edit";
-  if (!user) return null;
-  if (access.owner.id === user.id) return "owner";
-  return Object.values(access.invites).find((inv) => inv.user?.id === user.id)?.role || null;
+/* role：owner（擁有者）、edit（可以編輯）、view（唯讀）、null（沒有權限）；who：認出來的是哪個身分 */
+function match(access, people) {
+  if (!access) return { role: "edit", who: people[0] || null };
+  const owner = people.find((p) => p.id === access.owner.id);
+  if (owner) return { role: "owner", who: owner };
+  for (const inv of Object.values(access.invites)) {
+    const who = people.find((p) => p.id === inv.user?.id);
+    if (who) return { role: inv.role, who };
+  }
+  return { role: null, who: null };
 }
+
+const roleOf = (access, people) => match(access, people).role;
 
 const canWrite = (role) => role === "owner" || role === "edit";
 
@@ -98,16 +106,19 @@ export class TripRoom extends DurableObject {
 
   async fetch(request) {
     const url = new URL(request.url);
-    const user = readUser(request);
+    const people = readPeople(request);
 
     /* 建立房間：只有空房間才能寫入第一份行程；建立的人是擁有者 */
     if (url.pathname.endsWith("/init") && request.method === "POST") {
       if (await this.state()) return Response.json({ error: "房間已經存在" }, { status: 409 });
-      if (!user) return Response.json({ error: "請先用 Google 登入" }, { status: 401 });
+      /* 擁有者一定是 Google 帳號（訪客不能建立） */
+      const owner = people.find((p) => !p.guest);
+      if (!owner) return Response.json({ error: "請先用 Google 登入" }, { status: 401 });
       const { trip } = await request.json();
       if (!validTrip(trip)) return Response.json({ error: "行程資料不完整" }, { status: 400 });
       const state = { version: 1, trip, updatedAt: new Date().toISOString() };
-      await this.ctx.storage.put({ state, access: { owner: user, invites: {} } });
+      const { guest, ...ownerInfo } = owner;
+      await this.ctx.storage.put({ state, access: { owner: ownerInfo, invites: {} } });
       return Response.json({ ...state, role: "owner", managed: true });
     }
 
@@ -116,13 +127,19 @@ export class TripRoom extends DurableObject {
     const access = await this.access();
 
     /* 用專屬邀請連結加入 */
-    if (url.pathname.endsWith("/join") && request.method === "POST") return this.join(request, state, access, user);
+    if (url.pathname.endsWith("/join") && request.method === "POST") return this.join(request, state, access, people);
 
-    const role = roleOf(access, user);
+    const { role, who } = match(access, people);
     if (!role) {
-      return user
+      return people.length
         ? Response.json({ error: "你沒有這趟共編行程的權限，請向擁有者要一條專屬邀請連結" }, { status: 403 })
-        : Response.json({ error: "請先用 Google 登入" }, { status: 401 });
+        : Response.json({ error: "請先用 Google 登入，或重新打開邀請連結以訪客加入" }, { status: 401 });
+    }
+
+    /* 成員申請一起編輯（或取消、查結果）：回給 server/api/rooms.js 擁有者是誰，由它去擁有者的收件匣處理 */
+    if (url.pathname.endsWith("/ask") && request.method === "POST") {
+      if (!access || role === "owner") return Response.json({ error: "你已經可以編輯了" }, { status: 400 });
+      return Response.json({ ownerId: access.owner.id, title: state.trip.title || state.trip.name || "", who, role });
     }
 
     /* 擁有者：看成員與邀請、產生邀請、改權限、撤銷 */
@@ -162,8 +179,8 @@ export class TripRoom extends DurableObject {
       }
       const [client, server] = Object.values(new WebSocketPair());
       this.ctx.acceptWebSocket(server);
-      /* 有權限管理的房間：名字用 Google 帳號的名字 */
-      server.serializeAttachment({ id: crypto.randomUUID(), name: user?.name || "訪客", userId: access ? user.id : null, role });
+      /* 有權限管理的房間：名字用 Google 帳號的名字（訪客用加入時輸入的名字） */
+      server.serializeAttachment({ id: crypto.randomUUID(), name: who?.name || "訪客", userId: access ? who.id : null, role });
       return new Response(null, { status: 101, webSocket: client });
     }
 
@@ -171,30 +188,60 @@ export class TripRoom extends DurableObject {
     return Response.json({ ...state, role, managed: Boolean(access) });
   }
 
-  /* 加入：第一次使用的帳號綁定這條邀請；已經綁定別的帳號就拒絕 */
-  async join(request, state, access, user) {
+  /* 加入：第一次使用的身分綁定這條邀請（有 Google 帳號就用帳號，否則用訪客）；已經綁定別人就拒絕 */
+  async join(request, state, access, people) {
     if (!access) return Response.json({ ...state, role: "edit", managed: false });
-    if (!user) return Response.json({ error: "請先用 Google 登入" }, { status: 401 });
+    if (!people.length) return Response.json({ error: "請先用 Google 登入，或輸入名字以訪客加入" }, { status: 401 });
     const { code } = await request.json().catch(() => ({}));
     const invite = Object.values(access.invites).find((inv) => typeof code === "string" && inv.code === code);
     if (!invite) return Response.json({ error: "這個邀請連結已經失效，可能被擁有者撤銷了" }, { status: 404 });
 
-    const role = roleOf(access, user);
+    const role = roleOf(access, people);
     if (!role) {
-      if (invite.user) return Response.json({ error: "這個邀請連結已經被其他帳號使用，請向擁有者要一條你自己的連結" }, { status: 403 });
-      invite.user = user;
+      if (invite.user) return Response.json({ error: "這個邀請連結已經被其他人使用，請向擁有者要一條你自己的連結" }, { status: 403 });
+      invite.user = people[0];
       invite.joinedAt = new Date().toISOString();
       await this.ctx.storage.put("access", access);
     }
-    return Response.json({ ...state, role: roleOf(access, user), managed: true });
+    return Response.json({ ...state, role: roleOf(access, people), managed: true });
   }
 
-  /* action：invite（產生邀請）、role（改成可編輯／唯讀）、revoke（撤銷） */
+  /* action：invite（產生邀請）、role（改成可編輯／唯讀）、revoke（撤銷）、
+     grant（同意申請：直接讓這個人成為成員；已經是成員就改權限） */
   async manage(request, access) {
     const body = await request.json().catch(() => ({}));
-    const invite = access.invites[body.inviteId];
+    let invite = access.invites[body.inviteId];
 
-    if (body.action === "invite") {
+    if (body.action === "grant") {
+      const user = body.user;
+      if (!user?.id || user.id === access.owner.id || !ROLES.includes(body.role)) {
+        return Response.json({ error: "不知道要讓誰加入" }, { status: 400 });
+      }
+      const found = Object.entries(access.invites).find(([, inv]) => inv.user?.id === user.id);
+      if (found) {
+        /* 已經是成員：改權限，接著照 role 的流程通知線上的人 */
+        body.action = "role";
+        body.inviteId = found[0];
+        invite = found[1];
+      } else {
+        if (Object.keys(access.invites).length >= MAX_INVITES) {
+          return Response.json({ error: `一趟行程最多 ${MAX_INVITES} 條邀請` }, { status: 413 });
+        }
+        const now = new Date().toISOString();
+        access.invites[randomCode().slice(0, 12)] = {
+          label: String(user.name || "").slice(0, 30) || "朋友",
+          role: body.role,
+          code: randomCode(),
+          createdAt: now,
+          user: { id: String(user.id), name: String(user.name || ""), email: String(user.email || ""), guest: Boolean(user.guest) },
+          joinedAt: now,
+        };
+      }
+    }
+
+    if (body.action === "grant") {
+      /* 上面已經加好新成員 */
+    } else if (body.action === "invite") {
       if (Object.keys(access.invites).length >= MAX_INVITES) {
         return Response.json({ error: `一趟行程最多 ${MAX_INVITES} 條邀請` }, { status: 413 });
       }
