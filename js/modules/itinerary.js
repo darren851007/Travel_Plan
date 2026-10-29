@@ -118,6 +118,7 @@ Trip.itinerary = {
       ${item.must ? `<span class="badge-must">★ ${food ? "必吃" : "必去"}</span>` : ""}
       ${editable && item.uid ? `<button class="btn-edit tl-edit" type="button" data-edit-item="${esc(item.uid)}" aria-label="編輯「${esc(item.title)}」">編輯</button>` : ""}
     </h4>
+    ${this.renderRoute(item)}
     ${span ? `<p class="tl-span"><span class="tl-span__main">🕘 ${esc(span.main)}</span>${span.sub ? `<span class="tl-span__sub">${esc(span.sub)}</span>` : ""}</p>` : ""}
     ${item.note ? `<p class="tl-note">${esc(item.note)}</p>` : ""}
     ${item.uid && Trip.photos.photoOf(dest, item.uid) ? `<figure class="tl-photo" data-photo-item="${esc(item.uid)}" hidden><button class="tl-photo__open" type="button" data-zoom-title="${esc(item.title)}" aria-label="放大「${esc(item.title)}」的照片"><img alt="${esc(item.title)}的照片" loading="lazy"></button></figure>` : ""}
@@ -190,6 +191,10 @@ ${editable ? `
     const minutes = item.duration || (item.arriveTime ? null : minutesBetween(item.time, item.endTime));
     const end = item.endTime || (minutes ? addMinutes(item.arriveTime || item.time, minutes) : "");
     if (!item.arriveTime && !minutes && !end) return null;
+    /* 有路線節點時，出發與抵達已經顯示在路線上，這裡只留在目的地的停留與結束時間 */
+    if (this.routeNodes(item).length) {
+      return minutes ? { main: `停留 ${formatMinutes(minutes)}${end ? ` → ${end} 結束` : ""}`, sub: "" } : null;
+    }
     /* 第一行：出發 → 結束；第二行：抵達、停留 */
     const main = [item.time ? `${item.time} 出發` : "", end ? `${end} 結束` : ""].filter(Boolean).join(" → ");
     const sub = [
@@ -199,6 +204,38 @@ ${editable ? `
       .filter(Boolean)
       .join(" · ");
     return { main, sub };
+  },
+
+  /* 路線節點：出發地點 → 中途停靠 → 到達地點；三者都沒填就不顯示 */
+  routeNodes(item) {
+    const { addMinutes, formatMinutes } = Trip.utils;
+    const stops = item.stops || [];
+    if (!item.from && !item.to && !stops.length) return [];
+    return [
+      { kind: "start", name: item.from || "出發", time: item.time ? `${item.time} 出發` : "" },
+      ...stops.map((s) => {
+        const leave = s.arrive && s.minutes ? addMinutes(s.arrive, s.minutes) : "";
+        return {
+          kind: "stop",
+          name: s.name,
+          time: [s.arrive ? `${s.arrive} 抵達` : "", s.minutes ? `停留 ${formatMinutes(s.minutes)}` : "", leave ? `${leave} 離開` : ""]
+            .filter(Boolean)
+            .join(" · "),
+        };
+      }),
+      { kind: "end", name: item.to || "到達", time: item.arriveTime ? `${item.arriveTime} 抵達` : "" },
+    ];
+  },
+
+  renderRoute(item) {
+    const { esc } = Trip.utils;
+    const nodes = this.routeNodes(item);
+    if (!nodes.length) return "";
+    return `<ol class="tl-route" aria-label="路線">${nodes
+      .map(
+        (n) => `<li class="tl-route__node tl-route__node--${n.kind}"><span class="tl-route__name">${esc(n.name)}</span>${n.time ? `<span class="tl-route__time">${esc(n.time)}</span>` : ""}</li>`
+      )
+      .join("")}</ol>`;
   },
 
   /* ---------- 放大看照片 ---------- */

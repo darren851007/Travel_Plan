@@ -374,6 +374,10 @@ Trip.notionExport = {
             must: item.must,
             theme: day.theme,
             note: item.note,
+            route: Trip.itinerary
+              .routeNodes(item)
+              .map((n) => (n.time ? `${n.name}（${n.time}）` : n.name))
+              .join(" → "),
             map: Trip.utils.mapUrl(item.map),
             kind: item.kind === "food" ? "food" : "spot",
             meal: item.meal || "",

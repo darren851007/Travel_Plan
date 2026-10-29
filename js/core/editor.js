@@ -92,6 +92,10 @@ Trip.mutate = {
     const item = { uid: id, time: row.time, title: row.title, note: row.note, transport: row.transport, must: row.must };
     if (row.map) item.map = row.map;
     /* 出發時間就是 time；抵達時間、停留分鐘、結束時間（抵達＋停留） */
+    /* 出發地點、到達地點、中途停靠（名稱、抵達時間、停留分鐘） */
+    if (row.from) item.from = row.from;
+    if (row.to) item.to = row.to;
+    if (Array.isArray(row.stops) && row.stops.length) item.stops = row.stops;
     if (row.arriveTime) item.arriveTime = row.arriveTime;
     if (row.duration) item.duration = row.duration;
     if (row.endTime) item.endTime = row.endTime;

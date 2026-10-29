@@ -4,6 +4,7 @@
    - 共編行程：存到共編房間（存檔都走 js/core/editor.js）
    每個景點可以放一張照片（js/core/photos.js），顯示在時間軸上
    餐廳也用同一個對話框（kind: "food"）：多了餐別（早餐、午餐…），和景點一起依時間排序
+   出發地點、到達地點（from、to），中間可以加「中途停靠」（stops：名稱、抵達時間、停留分鐘）
    ============================================================ */
 window.Trip = window.Trip || {};
 
@@ -19,6 +20,10 @@ Trip.addItem = {
     this.fields = {
       heading: $("add-item-title"),
       day: $("add-item-day"),
+      from: $("add-item-from"),
+      to: $("add-item-to"),
+      stops: $("add-item-stops"),
+      stopAdd: $("add-item-stop-add"),
       time: $("add-item-time"),
       end: $("add-item-end"),
       duration: $("add-item-duration"),
@@ -56,6 +61,22 @@ Trip.addItem = {
     for (const name of ["time", "end", "duration"]) {
       this.fields[name].addEventListener("change", () => this.syncTimes());
       this.fields[name].addEventListener("input", () => this.syncTimes());
+    }
+    /* 中途停靠：新增、移除；改了抵達或停留就重算離開時間 */
+    this.fields.stopAdd.addEventListener("click", () => {
+      this.addStop().querySelector('[data-field="name"]').focus();
+    });
+    this.fields.stops.addEventListener("click", (e) => {
+      const button = e.target.closest(".leg-remove");
+      if (!button) return;
+      button.closest(".leg").remove();
+      this.renumberStops();
+    });
+    for (const type of ["input", "change"]) {
+      this.fields.stops.addEventListener(type, (e) => {
+        const li = e.target.closest(".leg");
+        if (li) this.syncStop(li);
+      });
     }
     $("add-item-cancel").addEventListener("click", () => this.dialog.close());
     this.fields.day.addEventListener("change", () => this.applyDayDefaults());
@@ -135,6 +156,9 @@ Trip.addItem = {
 
     const f = this.fields;
     f.day.value = String(day.number || at.d + 1);
+    f.from.value = item.from || "";
+    f.to.value = item.to || "";
+    (item.stops || []).forEach((stop) => this.addStop(stop));
     f.time.value = item.time || "";
     /* 抵達時間；舊資料沒有抵達時間（當時的「結束時間」是出發＋停留），停留時間從那裡算回來 */
     f.end.value = item.arriveTime || "";
@@ -197,6 +221,9 @@ Trip.addItem = {
       )
       .join("");
 
+    f.from.value = "";
+    f.to.value = "";
+    f.stops.innerHTML = "";
     f.time.value = "";
     f.end.value = "";
     this.setDuration("");
@@ -226,13 +253,78 @@ Trip.addItem = {
 
   /* 停留時間選單：常用的選項；算出來不在清單裡的（例如 1 小時 10 分）另外加一個 */
   setDuration(minutes) {
+    this.fields.duration.innerHTML = this.durationOptions(this.DURATIONS, minutes);
+    this.fields.duration.value = minutes ? String(minutes) : "";
+  },
+
+  durationOptions(durations, minutes) {
     const { formatMinutes } = Trip.utils;
-    const list = [...this.DURATIONS];
+    const list = [...durations];
     if (minutes && !list.includes(minutes)) list.push(minutes);
     list.sort((a, b) => a - b);
-    this.fields.duration.innerHTML =
-      `<option value="">不指定</option>` + list.map((m) => `<option value="${m}">${formatMinutes(m)}</option>`).join("");
-    this.fields.duration.value = minutes ? String(minutes) : "";
+    return `<option value="">不指定</option>` + list.map((m) => `<option value="${m}">${formatMinutes(m)}</option>`).join("");
+  },
+
+  /* ---------- 中途停靠 ---------- */
+
+  /* 停靠站的停留通常比較短，多了 5、10 分 */
+  STOP_DURATIONS: [5, 10, 15, 20, 30, 45, 60, 90, 120, 180],
+
+  /* 加一個停靠站（每站一張小卡，樣式跟轉機航班一樣） */
+  addStop(stop = {}) {
+    const { esc } = Trip.utils;
+    this.fields.stops.insertAdjacentHTML(
+      "beforeend",
+      `
+<li class="leg">
+  <div class="leg__head">
+    <strong class="leg__title"></strong>
+    <button class="btn-edit leg-remove" type="button">移除這站</button>
+  </div>
+  <input data-field="name" aria-label="停靠站名稱" maxlength="100" autocomplete="off" placeholder="停靠站名稱，例如：首爾站" value="${esc(stop.name || "")}">
+  <div class="dialog__row">
+    <label class="field">
+      <span class="leg__label">抵達時間</span>
+      <input data-field="arrive" type="time" step="300" value="${esc(stop.arrive || "")}">
+    </label>
+    <label class="field">
+      <span class="leg__label">停留時間</span>
+      <select data-field="minutes">${this.durationOptions(this.STOP_DURATIONS, stop.minutes)}</select>
+    </label>
+  </div>
+  <span class="time-calc" data-field="calc" hidden></span>
+</li>`
+    );
+    const li = this.fields.stops.lastElementChild;
+    li.querySelector('[data-field="minutes"]').value = stop.minutes ? String(stop.minutes) : "";
+    this.renumberStops();
+    this.syncStop(li);
+    return li;
+  },
+
+  renumberStops() {
+    [...this.fields.stops.children].forEach((li, i) => {
+      li.querySelector(".leg__title").textContent = `停靠站 ${i + 1}`;
+    });
+  },
+
+  /* 停靠站的離開時間＝抵達＋停留 */
+  syncStop(li) {
+    const stop = this.stopData(li);
+    const leave = stop.arrive && stop.minutes ? Trip.utils.addMinutes(stop.arrive, stop.minutes) : "";
+    const calc = li.querySelector('[data-field="calc"]');
+    calc.hidden = !leave;
+    calc.textContent = leave ? `離開時間：${leave}` : "";
+  },
+
+  stopData(li) {
+    const get = (name) => li.querySelector(`[data-field="${name}"]`).value;
+    return { name: get("name").trim(), arrive: get("arrive"), minutes: Number(get("minutes")) || "" };
+  },
+
+  /* 完全沒填的停靠站不存 */
+  collectStops() {
+    return [...this.fields.stops.children].map((li) => this.stopData(li)).filter((s) => s.name || s.arrive || s.minutes);
   },
 
   /* 結束時間＝抵達（沒填就用出發）＋停留 */
@@ -267,6 +359,9 @@ Trip.addItem = {
     const f = this.fields;
     const item = {
       day: Number(f.day.value),
+      from: f.from.value.trim(),
+      to: f.to.value.trim(),
+      stops: this.collectStops(),
       time: f.time.value,
       arriveTime: f.end.value,
       duration: Number(f.duration.value) || "",
@@ -300,6 +395,12 @@ Trip.addItem = {
     }
     if (item.time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(item.time)) {
       this.message("時間格式請用 09:30", "error");
+      return;
+    }
+    const unnamed = item.stops.findIndex((s) => !s.name);
+    if (unnamed >= 0) {
+      this.message(`請填寫停靠站 ${unnamed + 1} 的名稱`, "error");
+      this.fields.stops.children[unnamed]?.querySelector('[data-field="name"]').focus();
       return;
     }
 

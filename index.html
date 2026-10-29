@@ -241,6 +241,17 @@
           <input id="add-item-time" name="time" type="time" step="300">
         </label>
         <label class="field">
+      <div class="dialog__row">
+        <label class="field">
+          <span class="field__label">出發地點</span>
+          <input id="add-item-from" name="from" maxlength="100" autocomplete="off" placeholder="例如：飯店">
+        </label>
+        <label class="field">
+          <span class="field__label">到達地點</span>
+          <input id="add-item-to" name="to" maxlength="100" autocomplete="off" placeholder="例如：昌德宮">
+        </label>
+      </div>
+
           <span class="field__label">抵達時間</span>
           <input id="add-item-end" name="end" type="time" step="300">
         </label>
@@ -252,6 +263,12 @@
         <span class="field__hint" id="add-item-time-hint">結束時間＝抵達時間＋預計停留（沒填抵達時間就從出發時間算）</span>
         <span class="time-calc" id="add-item-end-calc" hidden></span>
       </label>
+      <fieldset class="dialog__fieldset field legs-field">
+        <legend class="field__label">中途停靠</legend>
+        <ol class="legs" id="add-item-stops"></ol>
+        <button class="btn btn--ghost btn--small legs__add" type="button" id="add-item-stop-add">＋ 新增中途停靠</button>
+      </fieldset>
+
 
       <label class="field">
         <span class="field__label">城市</span>

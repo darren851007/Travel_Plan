@@ -2168,3 +2168,63 @@ a.btn.is-disabled {
   padding-left: 1.4em;
   font-size: 0.78rem;
 }
+
+/* 時間軸：路線節點（出發地點 → 中途停靠 → 到達地點） */
+.tl-route {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+}
+
+.tl-route__node {
+  position: relative;
+  display: grid;
+  padding-left: 20px;
+}
+
+/* 節點的圓點 */
+.tl-route__node::before {
+  content: "";
+  position: absolute;
+  top: 0.4em;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: var(--card);
+}
+
+.tl-route__node--start::before {
+  background: var(--ink);
+}
+
+.tl-route__node--end::before {
+  background: var(--butter);
+}
+
+/* 節點之間的連接線 */
+.tl-route__node:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: calc(0.4em + 10px);
+  bottom: calc(-6px - 0.4em);
+  left: 6px;
+  width: 2px;
+  background: var(--ink-soft);
+}
+
+.tl-route__name {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.tl-route__time {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+
