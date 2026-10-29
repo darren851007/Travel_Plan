@@ -1,16 +1,16 @@
 {
   "countries": {
-    "韓國": {"id":"korea","flag":"🇰🇷","color":"blue"},
-    "日本": {"id":"japan","flag":"🇯🇵","color":"red"},
-    "泰國": {"id":"thailand","flag":"🇹🇭","color":"yellow"},
-    "越南": {"id":"vietnam","flag":"🇻🇳","color":"green"},
-    "新加坡": {"id":"singapore","flag":"🇸🇬","color":"pink"},
-    "香港": {"id":"hongkong","flag":"🇭🇰","color":"purple"},
-    "澳門": {"id":"macau","flag":"🇲🇴","color":"orange"},
-    "印尼": {"id":"indonesia","flag":"🇮🇩","color":"brown"},
-    "捷克": {"id":"czech","flag":"🇨🇿","color":"gray"},
-    "奧地利": {"id":"austria","flag":"🇦🇹","color":"default"},
-    "匈牙利": {"id":"hungary","flag":"🇭🇺","color":"green"}
+    "韓國": {"code":"KR","id":"korea","flag":"🇰🇷","color":"blue"},
+    "日本": {"code":"JP","id":"japan","flag":"🇯🇵","color":"red"},
+    "泰國": {"code":"TH","id":"thailand","flag":"🇹🇭","color":"yellow"},
+    "越南": {"code":"VN","id":"vietnam","flag":"🇻🇳","color":"green"},
+    "新加坡": {"code":"SG","id":"singapore","flag":"🇸🇬","color":"pink"},
+    "香港": {"code":"HK","id":"hongkong","flag":"🇭🇰","color":"purple"},
+    "澳門": {"code":"MO","id":"macau","flag":"🇲🇴","color":"orange"},
+    "印尼": {"code":"ID","id":"indonesia","flag":"🇮🇩","color":"brown"},
+    "捷克": {"code":"CZ","id":"czech","flag":"🇨🇿","color":"gray"},
+    "奧地利": {"code":"AT","id":"austria","flag":"🇦🇹","color":"default"},
+    "匈牙利": {"code":"HU","id":"hungary","flag":"🇭🇺","color":"green"}
   },
   "cities": [
     {"name":"首爾","id":"seoul","country":"韓國","airport":"ICN","art":"heroSeoul"},

@@ -1046,8 +1046,69 @@ a.btn.is-disabled {
   font-size: 0.95rem;
 }
 
-#new-trip-add-city {
-  margin-top: 8px;
+/* ---------- 可搜尋的下拉選單（js/core/combobox.js） ---------- */
+.combo {
+  position: relative;
+}
+
+.combo input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: var(--line) solid var(--ink);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  font: inherit;
+  font-size: 16px;
+  color: inherit;
+}
+
+.combo__list {
+  position: absolute;
+  inset: calc(100% + 4px) 0 auto;
+  z-index: 5;
+  max-height: 260px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+.combo__option {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.combo__option.is-active,
+.combo__option:hover {
+  background: var(--butter);
+}
+
+.combo__detail,
+.combo__empty {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.combo__detail {
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.combo__empty {
+  padding: 8px 10px;
 }
 
 /* 自己建立的行程：存在這台裝置、可刪除 */

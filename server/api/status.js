@@ -15,6 +15,7 @@ export async function onRequestGet({ request, env }) {
     templatePage: session?.d || "",
     collab: Boolean(env.TRIP_ROOM),
     google: isGoogleConfigured(env),
+    places: Boolean(env.PLACES_DB),
     user: user ? { id: user.id, name: user.name, email: user.email } : null,
     guest: guest ? { name: guest.name } : null,
     flightLookup: Boolean(env.AERODATABOX_KEY),

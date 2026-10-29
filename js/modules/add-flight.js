@@ -243,8 +243,10 @@ Trip.addFlight = {
     const days = this.trip.days;
     const outbound = this.selectedType() === "去程";
     const cityName = outbound ? days[0].city : days[days.length - 1].city;
+    /* 機場：建立行程時記下的（js/modules/new-trip.js 的 places），舊行程用常用城市清單 */
+    const place = Trip.state.destination?.places?.[cityName];
     const city = this.cities.find((c) => c.name === cityName);
-    const there = { code: city?.airport || "", city: cityName || "" };
+    const there = { code: place?.airport || city?.airport || "", city: cityName || "" };
     return outbound ? [this.HOME, there] : [there, this.HOME];
   },
 

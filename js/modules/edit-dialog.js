@@ -4,6 +4,8 @@
    - fields：[{ name, label, type: text|date|time|textarea|photo, placeholder, required, options（建議清單）, half }]
      photo：照片欄位（js/core/photos.js），values 給目前照片網址；送出時的值是 { changed, blob }
      choice：選一個的標籤（options: [{ value, label, tone }]），送出時的值是選到的 value
+     combo：可搜尋的選單（js/core/combobox.js）：load(文字, 目前各選單的值) 回傳選項、text(值) 是輸入框顯示的文字、
+            resets：選了這個之後要清空的其他選單（例如換國家就清空城市）；送出時的值是選到的 value（物件，沒選是 null）
    - onSubmit(values)：回傳 Promise；丟出錯誤會顯示在對話框裡
    - onDelete()：有給才顯示「刪除」（按兩次才刪）
    ============================================================ */
@@ -60,6 +62,17 @@ Trip.editDialog = {
   </div>
 </fieldset>`;
         }
+        if (f.type === "combo") {
+          return `
+<div class="field">
+  <label class="field__label" for="${id}">${esc(f.label)}</label>
+  <div class="combo">
+    <input id="${id}" placeholder="${esc(f.placeholder || "")}">
+    <ul class="combo__list" id="${id}-list"></ul>
+  </div>
+  ${f.hint ? `<span class="field__hint">${esc(f.hint)}</span>` : ""}
+</div>`;
+        }
         if (f.type === "photo") {
           return `
 <div class="field">
@@ -89,12 +102,39 @@ Trip.editDialog = {
         .map((f) => [f.name, Trip.photos.field(document.getElementById(`edit-field-${f.name}`), values[f.name])])
     );
 
+    /* 可搜尋的選單：記住每個選單目前選的值 */
+    this.combos = {};
+    for (const f of fields.filter((f) => f.type === "combo")) {
+      const input = document.getElementById(`edit-field-${f.name}`);
+      const combo = { value: values[f.name] ?? null };
+      combo.box = Trip.combobox.create({
+        input,
+        list: document.getElementById(`edit-field-${f.name}-list`),
+        load: (q) => f.load(q, this.comboValues()),
+        empty: f.empty,
+        onSelect: (item) => {
+          combo.value = item.value;
+          combo.box.setText(f.text(item.value));
+          for (const other of f.resets || []) {
+            this.combos[other].value = null;
+            this.combos[other].box.setText("");
+          }
+        },
+      });
+      combo.box.setText(f.text(combo.value));
+      this.combos[f.name] = combo;
+    }
+
     this.remove.hidden = !onDelete;
     Trip.tripDelete.reset(this.remove, "刪除");
     this.message("");
     this.setBusy(false);
     this.dialog.showModal();
     this.body.querySelector("input, textarea")?.focus();
+  },
+
+  comboValues() {
+    return Object.fromEntries(Object.entries(this.combos).map(([name, c]) => [name, c.value]));
   },
 
   collect() {
@@ -106,7 +146,9 @@ Trip.editDialog = {
             ? this.photos[f.name].state()
             : f.type === "choice"
               ? this.form.querySelector(`input[name="${CSS.escape(f.name)}"]:checked`)?.value || ""
-              : this.form.elements[f.name].value.trim(),
+              : f.type === "combo"
+                ? this.combos[f.name].value
+                : this.form.elements[f.name].value.trim(),
         ]
       )
     );
@@ -121,7 +163,7 @@ Trip.editDialog = {
     const missing = this.options.fields.find((f) => f.required && !values[f.name]);
     if (missing) {
       this.message(`請填寫${missing.label}`, "error");
-      this.form.elements[missing.name].focus();
+      document.getElementById(`edit-field-${missing.name}`)?.focus();
       return;
     }
     await this.run(() => this.options.onSubmit(values));

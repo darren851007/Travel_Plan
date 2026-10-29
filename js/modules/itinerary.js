@@ -135,6 +135,7 @@ Trip.itinerary = {
     return `
 <div class="day-panel__head">
   <h3 class="day-panel__title">Day ${index + 1} · ${d.md}（${d.weekday}）</h3>
+  ${day.country && day.country !== Trip.state.destination?.name ? `<span class="pill">${esc(`${Trip.places.flagOf(day.countryCode)} ${day.country}`.trim())}</span>` : ""}
   ${day.city ? `<span class="pill tone-sky">${esc(day.city)}</span>` : ""}
   <p class="day-panel__theme">${esc(day.theme)}</p>
   ${editable ? '<button class="btn-edit" type="button" data-edit-day>編輯這一天</button>' : ""}

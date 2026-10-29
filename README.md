@@ -23,6 +23,7 @@
 - **分享給好友**：產生唯讀連結（行程壓縮在連結裡，不經過伺服器），好友可以「加入我的行程」存一份；預設不包含訂房編號、電話、旅客與座位，也不含照片
 - **即時共同編輯**（Cloudflare 版）：用 Google 登入後在分享對話框「建立共編行程」，建立的人是擁有者；擁有者替每個人產生**專屬邀請連結**（可以一起編輯，或不勾選就只能看），對方用 Google 登入後連結就綁定他的帳號，轉給別人也打不開；擁有者可以隨時改權限或撤銷。只有擁有者能把行程分享出去。修改 1 秒內出現、顯示誰在線上；「離開共編」只會從自己的清單移除。受邀的人可以用 Google 登入，或只輸入名字以訪客加入（綁定那個瀏覽器）。改版前建立的舊共編連結照舊可用
 - **加入需要擁有者同意**（Cloudflare 版）：「分享給好友」要先用 Google 登入；好友按「加入我的行程」、共編裡只能看的成員按「申請一起編輯」都會送出申請（按鈕變成「申請中（點一下取消）」）。擁有者打開那趟行程時跳出對話框，「分享給好友」裡也有申請清單，同意後對方就是共編成員；被拒絕時對方的按鈕回到原本的樣子
+- **國家與城市**（Cloudflare 版，需設定 `GEONAMES_USERNAME` 與 D1）：新增行程時國家、城市是可搜尋的選單，全世界的國家與人口一萬五千以上的城市都能選，選了城市會記下最近的機場（常用城市以 `js/data/cities.json` 指定的機場為準，例如京都 → KIX），新增航班時自動帶入。資料由 Cloudflare 排程每月向 GeoNames 更新一次，存在 D1（SQL），網頁查詢只讀 D1；沒有後端（GitHub Pages）時改用 `cities.json` 的常用清單
 - **自動帶入航班資料**（Cloudflare 版，需設定 `AERODATABOX_KEY`）：依航班號碼＋航班日期查 AeroDataBox，帶入機型、出發／抵達航廈、起降時間與飛行時間；那天查不到時跳出提示，可以選擇帶入最近一班的資料或自己填
 - **匯出至 Notion**（Cloudflare 版，需設定 Notion 公開整合）：行程頁按「匯出至 Notion」→ 用 Notion 登入 → 選一個頁面 → 匯出
 - **照片**：封面與景點照片先在瀏覽器縮小成最長邊 1600 像素的 JPEG；自己的行程存在這台裝置（IndexedDB，不上傳），共編行程存在共編房間，大家都看得到
@@ -106,6 +107,9 @@ scripts/build.mjs       打包網頁到 dist/site（只含網頁檔案）
    - **Cloudflare 網頁**：Workers 和 Pages → travel-plan → 設定 →「變數和密碼」→ 新增兩筆「密碼（Secret）」：`NOTION_CLIENT_ID`、`NOTION_CLIENT_SECRET`，按部署
    - **電腦終端機**：`npx wrangler secret put NOTION_CLIENT_ID`、`npx wrangler secret put NOTION_CLIENT_SECRET`
    - 選填：`SESSION_SECRET`（加密登入 Cookie 用；不設就從 Client Secret 衍生）、`AERODATABOX_KEY`（自動帶入機型與航廈）
+6. 國家與城市（選填）：到 [GeoNames](https://www.geonames.org/login) 註冊，在[帳號頁](https://www.geonames.org/manageaccount)開啟「Free Web Services」，把使用者名稱設成密鑰 `GEONAMES_USERNAME`
+   - 建立 D1：`npx wrangler d1 create travel-places`，把 `database_id` 填進 `wrangler.toml`，再執行 `npx wrangler d1 migrations apply travel-places --remote` 建立資料表
+   - 部署後排程每分鐘更新一個國家，約 4～5 小時抓完；想立刻全部抓完可以在 `.dev.vars` 加上 `GEONAMES_USERNAME` 後執行 `node scripts/load-places.mjs`
    - 還沒設定時，網站的「匯出至 Notion」視窗裡也有「我是網站管理員」的步驟說明
 
 之後修改程式只要 `npm run deploy`。

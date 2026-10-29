@@ -35,12 +35,18 @@ Trip.editor = {
     return { id, row: values };
   },
 
-  /* 編輯一整天的主題與城市 */
-  editDay(dest, dayIndex, { theme, city }) {
+  /* 編輯一整天的主題、國家與城市（country：{ code, name }；city：{ name, place } 或 null）
+     城市的經緯度與機場記在行程的 places，新增航班時自動帶入機場 */
+  editDay(dest, dayIndex, { theme, country, city }) {
     return this.save(dest, (d) => {
       const day = d.days[dayIndex];
       day.theme = theme;
-      day.city = city;
+      day.city = city?.name || "";
+      if (country) {
+        day.country = country.name;
+        day.countryCode = country.code || "";
+      }
+      if (city?.place) d.places = { ...(d.places || {}), [city.name]: city.place };
     });
   },
 

@@ -457,16 +457,47 @@ Trip.addItem = {
   },
 
   /* 「編輯這一天」：主題與城市 */
-  editDay(dayIndex) {
+  /* 每天可以各自選國家與城市（可搜尋的選單，js/core/places.js）；
+     舊行程的每一天沒有記國家，預設是整趟行程的國家 */
+  async editDay(dayIndex) {
     const dest = Trip.state.destination;
     const day = dest.days[dayIndex];
+    try {
+      await Trip.places.ready();
+    } catch (err) {
+      this.toast(`讀不到國家與城市清單：${err.message}`);
+      return;
+    }
+    const country = day.country
+      ? { code: day.countryCode || "", name: day.country, flag: Trip.places.flagOf(day.countryCode) }
+      : Trip.places.countryByName(dest.name);
+    const city = day.city ? { name: day.city, place: dest.places?.[day.city] } : null;
     Trip.editDialog.open({
       title: `編輯 Day ${dayIndex + 1}`,
       fields: [
         { name: "theme", label: "當日主題", placeholder: "例如：古宮與韓屋" },
-        { name: "city", label: "城市", placeholder: "例如：首爾", options: this.trip.cities, hint: "住宿日期與機場會依城市計算" },
+        {
+          name: "country",
+          type: "combo",
+          label: "國家",
+          placeholder: "搜尋國家，例如：日本",
+          load: (q) => Trip.places.countryOptions(q),
+          text: (c) => (c ? `${c.flag} ${c.name}`.trim() : ""),
+          resets: ["city"],
+          empty: "找不到這個國家",
+        },
+        {
+          name: "city",
+          type: "combo",
+          label: "城市（選填）",
+          placeholder: "搜尋城市，例如：京都",
+          load: (q, values) => Trip.places.cityOptions(values.country, q),
+          text: (c) => c?.name || "",
+          empty: "找不到這個城市（請先選國家）",
+          hint: "住宿日期與機場會依城市計算",
+        },
       ],
-      values: { theme: day.theme, city: day.city },
+      values: { theme: day.theme, country, city },
       onSubmit: async (values) => {
         await Trip.editor.editDay(dest, dayIndex, values);
         Trip.editor.rerender(dayIndex);

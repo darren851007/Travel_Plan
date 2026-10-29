@@ -22,7 +22,8 @@ Trip.builder = {
       room: dest.room || "",
       brand: `${dest.name}小旅行`,
       title: dest.title,
-      subtitle: `${days.length} 天 ${nights} 夜 · ${dest.tagline}`,
+      /* 沒有副標題（例如沒選城市）就只顯示天數 */
+      subtitle: [`${days.length} 天 ${nights} 夜`, dest.tagline].filter(Boolean).join(" · "),
       dateRange: this.formatRange(start, end),
       /* 還沒有去程航班或起飛時間時，倒數算到出發日 00:00 */
       departure: `${start}T${dest.flights?.outbound?.from?.time || "00:00"}:00${config.originTimezone}`,

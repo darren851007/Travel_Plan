@@ -23,6 +23,8 @@ Trip.share = {
       tagline: dest.tagline,
       art: dest.art,
       startDate: dest.startDate,
+      /* 城市的機場（好友存一份後，新增航班時自動帶入） */
+      ...(dest.places ? { places: dest.places } : {}),
       flights: { outbound: flight(dest.flights?.outbound), inbound: flight(dest.flights?.inbound) },
       days: dest.days.map((d) => ({
         city: d.city,

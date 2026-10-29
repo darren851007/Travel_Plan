@@ -14,6 +14,19 @@ binding = "ASSETS"
 name = "TRIP_ROOM"
 class_name = "TripRoom"
 
+# 國家、城市、機場（D1 SQL 資料庫）：每月由排程向 GeoNames 更新一次，網頁查詢只讀這裡
+# 建立資料表：npx wrangler d1 migrations apply travel-places --remote
+[[d1_databases]]
+binding = "PLACES_DB"
+database_name = "travel-places"
+database_id = "f68b3f8c-b65a-457b-8637-b64d2512c994"
+migrations_dir = "migrations"
+
+# 排程：每分鐘看一次這個月的地點資料更新完了沒，沒有就再更新一個國家（約 250 國，4～5 小時更新完；
+# 更新完的月份只讀一筆進度就結束，不呼叫外部 API）
+[triggers]
+crons = ["* * * * *"]
+
 # 擁有者的收件匣：別人申請加入或申請一起編輯（每個 Google 帳號一個）
 [[durable_objects.bindings]]
 name = "OWNER_INBOX"
